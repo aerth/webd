@@ -349,7 +349,7 @@ func (s *System) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *System) StaticHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "bad method on staticHandler", http.StatusMethodNotAllowed)
+		http.Error(w, "bad method", http.StatusMethodNotAllowed)
 		return
 	}
 	w.Header().Set("Expires", time.Now().Add(time.Hour*24).UTC().Truncate(time.Second).Format(http.TimeFormat))
