@@ -24,6 +24,9 @@ func main() {
 		devmode    = false
 		addr       = "127.0.0.1:8080"
 		configpath = "config.json"
+		sslCert    = ""
+		sslKey     = ""
+		sslAddr    = ":443"
 	)
 
 	// flags
@@ -31,6 +34,9 @@ func main() {
 	flag.BoolVar(&doMongo, "useMongo", doMongo, "use MongoDB (not implemented yet)")
 	flag.BoolVar(&devmode, "dev", devmode, "development mode (insecure)")
 	flag.StringVar(&configpath, "conf", configpath, "path to config.json (use - for stdin)")
+	flag.StringVar(&sslCert, "sslcert", sslCert, "path to ssl cert")
+	flag.StringVar(&sslKey, "sslkey", sslKey, "path to ssl key")
+	flag.StringVar(&sslAddr, "ssladdr", sslAddr, "listen TLS if cert and key exist")
 	flag.Parse()
 
 	if devmode {
@@ -168,6 +174,12 @@ func main() {
 	s.SetGreylist(glist)
 
 	// Serve or die!
+	if sslCert != "" && sslKey != "" {
+		go func() {
+			log.Fatalln(http.ListenAndServeTLS(sslAddr, sslCert, sslKey,
+				glist.Protect(s.HitCounter(router))))
+		}()
+	}
 	log.Fatalln(http.ListenAndServe(addr,
 		glist.Protect(s.HitCounter(router))))
 }
