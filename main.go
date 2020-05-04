@@ -165,27 +165,24 @@ func main() {
 			log.Fatalln("couldn't parse reverse proxy destination:", err)
 		}
 		prx := httputil.NewSingleHostReverseProxy(target)
+		// custom director to remove cookies, remove path prefix
 		prx.Director = func(req *http.Request) {
 			target := target
-
 			// clear cookies
 			req.Header.Del("Cookie")
-
 			req.Host = target.Host
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, strings.TrimSuffix(path, "/"))
-			log.Println("transformed path:", req.URL.Path)
 			if target.RawQuery == "" || req.URL.RawQuery == "" {
 				req.URL.RawQuery = target.RawQuery + req.URL.RawQuery
 			} else {
 				req.URL.RawQuery = target.RawQuery + "&" + req.URL.RawQuery
 			}
 			if _, ok := req.Header["User-Agent"]; !ok {
-				// explicitly disable User-Agent so it's not set to default value
 				req.Header.Set("User-Agent", "")
 			}
-			log.Println("relaying:", req.URL.Scheme, req.Host, req.URL.Path, req.URL.RawPath)
+			log.Printf("relaying: %s://%s%s %s", req.URL.Scheme, req.Host, req.URL.Path, req.URL.Query().Encode())
 		}
 		prx.ErrorLog = log.New(os.Stderr, "ReverseProxy: ", log.LstdFlags)
 		router.Handle(path, prx)
