@@ -102,7 +102,7 @@ func (s *System) ReloadTemplates() error {
 			return fmt.Errorf("couldn't parse template %q: %v", name, err)
 		}
 	}
-	log.Printf("Parsed %d templates", len(templates), time.Since(t1))
+	log.Printf("Parsed %d templates in %s", len(templates), time.Since(t1))
 	s.templates = templates
 	return nil
 }
@@ -173,7 +173,7 @@ type LoginPacket struct {
 type User struct {
 	Name    string `json:"name"`
 	ID      string `json:"id"`
-	authkey string `json:"-"` // temporary login accept
+	authkey string // temporary login accept
 }
 
 func (u User) String() string {

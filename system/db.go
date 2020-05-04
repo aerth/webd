@@ -66,7 +66,8 @@ func (s *System) dbStore(method string, id string, val interface{}) error {
 		return fmt.Errorf("got error")
 	}
 	collection := dbclient.Database("testing").Collection(method)
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	_, err := collection.InsertOne(ctx, val)
 	return err
 }
@@ -81,7 +82,8 @@ func (s *System) dbFetch(method string, id string, result interface{}) error {
 	log.Println("fetching from database:", method, id)
 	collection := dbclient.Database("testing").Collection(method)
 	filter := bson.M{"ID": id}
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	err := collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		return err
@@ -218,7 +220,8 @@ func (s *System) InitDB(doMongo bool) error {
 			return err
 		}
 
-		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		err = client.Connect(ctx)
 		if err != nil {
 			return err
