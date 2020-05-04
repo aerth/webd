@@ -13,6 +13,10 @@
     "blacklist": "blacklist.txt",
     "servepublic": false
   },
+  "ReverseProxy": {
+    "/bin/": "https://httpbin.org",
+    "/usr/bin/": "https://httpbin.org"
+  },
   "Keys": {
     "GoogleClientID": "",
     "GoogleSecretKey": "",

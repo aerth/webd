@@ -5,8 +5,11 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aerth/webd/greylist"
@@ -152,6 +155,37 @@ func main() {
 	router.Handle("/dashboard", CSRF(http.HandlerFunc(s.DashboardHandler)))
 	router.Handle("/contact", CSRF(http.HandlerFunc(s.ContactHandler)))
 	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
+
+	for path, dest := range config.ReverseProxy {
+		path := path
+		log.Printf("adding reverse proxy: %s=>%s", path, dest)
+		target, err := url.Parse(dest)
+		if err != nil {
+			log.Fatalln("couldn't parse reverse proxy destination:", err)
+		}
+		prx := httputil.NewSingleHostReverseProxy(target)
+		prx.Director = func(req *http.Request) {
+			target := target
+			req.Host = target.Host
+			req.URL.Scheme = target.Scheme
+			req.URL.Host = target.Host
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, strings.TrimSuffix(path, "/"))
+			log.Println("transformed path:", req.URL.Path)
+			if target.RawQuery == "" || req.URL.RawQuery == "" {
+				req.URL.RawQuery = target.RawQuery + req.URL.RawQuery
+			} else {
+				req.URL.RawQuery = target.RawQuery + "&" + req.URL.RawQuery
+			}
+			if _, ok := req.Header["User-Agent"]; !ok {
+				// explicitly disable User-Agent so it's not set to default value
+				req.Header.Set("User-Agent", "")
+			}
+			log.Println("relaying:", req.URL.Scheme, req.Host, req.URL.Path, req.URL.RawPath)
+		}
+		prx.ErrorLog = log.New(os.Stderr, "ReverseProxy: ", log.LstdFlags)
+		router.Handle(path, prx)
+	}
+
 	// home and 404s (OR rest of files in ./public if config allows)
 	router.Handle("/", CSRF(http.HandlerFunc(s.HomeHandler)))
 

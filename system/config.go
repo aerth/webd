@@ -7,10 +7,12 @@ type MetaConfig struct {
 	CopyrightName   string `json:"copyright-name"`
 }
 type Config struct {
-	Meta MetaConfig     `json:"Meta,omitempty"`
-	Keys KeyConfig      `json:"Keys,omitempty"`
-	Sec  SecurityConfig `json:"Security,omitempty"`
+	Meta         MetaConfig        `json:"Meta,omitempty"`
+	Keys         KeyConfig         `json:"Keys,omitempty"`
+	Sec          SecurityConfig    `json:"Security,omitempty"`
+	ReverseProxy map[string]string `json:"ReverseProxy"`
 }
+
 type KeyConfig struct {
 	GoogleClientID    string `json:"GoogleClientID"`
 	GoogleSecretKey   string `json:"GoogleSecretKey"`
