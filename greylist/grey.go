@@ -118,7 +118,15 @@ func (l *List) SetTemporaryBlacklistTime(d time.Duration) {
 }
 
 // Blacklist adds a temporary ban to an ip address
-func (l *List) Blacklist(ip string) {
+func (l *List) Blacklist(r *http.Request) {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		log.Println(err)
+		ip = r.RemoteAddr
+	}
+	ip += " "
+	ip += r.Header.Get("X-Forwarded-For")
+
 	l.mu.Lock()
 	l.temporaryBlacklist[ip] = time.Now().Add(l.temporaryBlacklistTime)
 	l.mu.Unlock()
@@ -142,13 +150,14 @@ func (l *List) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// get IP (doesn't work well behind reverse proxy at the moment")
+	// get IP ("ok behind reverse proxy with x-forwarded-for header")
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		log.Printf("cant split hostport %q: %v", r.RemoteAddr, err)
-		http.Error(w, "error", 500)
-		return
+		log.Println(err)
+		ip = r.RemoteAddr
 	}
+	ip += " "
+	ip += r.Header.Get("X-Forwarded-For")
 
 	// locked for map reads, unlock asap (before setting headers or writing to conn)
 	l.mu.RLock()

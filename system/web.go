@@ -394,18 +394,21 @@ func (s *System) addBadAttempt(r *http.Request) {
 		log.Println("WARN: no greylist instance to add guy attempts")
 		return
 	}
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+
+	ipaddr, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		log.Println("WARN: cant split host port for bad guy")
-		return
+		log.Println(err)
+		ipaddr = r.RemoteAddr
 	}
+	ipaddr += " "
+	ipaddr += r.Header.Get("X-Forwarded-For")
 
 	// slows connection, but only for bad guys
 	s.badguylock.Lock()
-	counter := s.badguys[ip]
+	counter := s.badguys[ipaddr]
 	if counter == nil {
 		counter = new(uint32)
-		s.badguys[ip] = counter
+		s.badguys[ipaddr] = counter
 	}
 	s.badguylock.Unlock()
 
@@ -413,7 +416,7 @@ func (s *System) addBadAttempt(r *http.Request) {
 	// this counter doesn't reset, so after getting banned+unbanned only one attempt will re-ban
 	// TODO: admin interface to add/remove/reset counters
 	if *counter >= MaxAttempts {
-		log.Println("adding to blacklist:", ip)
-		s.greylist.Blacklist(ip)
+		log.Println("adding to blacklist:", ipaddr)
+		s.greylist.Blacklist(r)
 	}
 }
