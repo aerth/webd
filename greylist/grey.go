@@ -84,7 +84,7 @@ func New(whitelistFilename, blacklistFilename string, refreshRate time.Duration)
 		}
 	}
 
-	return &List{
+	l := &List{
 		whitelistFilename:      whitelistFilename,
 		blacklistFilename:      blacklistFilename,
 		cache:                  tick,
@@ -94,6 +94,8 @@ func New(whitelistFilename, blacklistFilename string, refreshRate time.Duration)
 		temporaryBlacklistTime: DefaultTemporaryBlacklistTime,
 		refreshRate:            refreshRate,
 	}
+	go l.RefreshLists()
+	return l
 }
 
 // Protect a http.Handler
@@ -102,7 +104,6 @@ func New(whitelistFilename, blacklistFilename string, refreshRate time.Duration)
 //
 func (l *List) Protect(h http.Handler) http.Handler {
 	l.underlyingHandler = h
-	l.RefreshLists()
 	return l
 }
 
