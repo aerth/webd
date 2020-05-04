@@ -2,7 +2,12 @@
   "Meta": {
     "siteurl": "http://127.0.0.1:8080",
     "sitename": "Test Application",
-    "copyright-name": "My Company, Inc"
+    "copyright-name": "My Company, Inc",
+    "templatedata": {
+      "foo": "bar",
+      "bar": "foo",
+      "someLink": "https://github.com/aerth/webd"
+    }
   },
   "Security": {
     "cookie-name": "cookie-name",
@@ -11,7 +16,8 @@
     "block-key": "caa7040d2f00aaa548d5bab3aaa72100",
     "whitelist": "whitelist.txt",
     "blacklist": "blacklist.txt",
-    "servepublic": false
+    "servepublic": false,
+    "database": "Passwords.db"
   },
   "ReverseProxy": {
     "/bin/": "https://httpbin.org",
