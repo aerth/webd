@@ -15,9 +15,9 @@ import (
 	_ "net/http/pprof"
 )
 
-var info = "webd superb application of the web\n"
+var info = "webd superb application of the web"
 var logo = "" +
-	"                __        __\n _      _____  / /_  ____/ /\n| | /| / / _ \\/ __ \\/ __  /   " + info + "| |/ |/ /  __/ /_/ / /_/ /  \n|__/|__/\\___/_.___/\\__,_/   Source: " +
+	"                __        __\n _      _____  / /_  ____/ /\n| | /| / / _ \\/ __ \\/ __  /   " + info + "\n" + "| |/ |/ /  __/ /_/ / /_/ /  \n|__/|__/\\___/_.___/\\__,_/   Source: " +
 	"https://github.com/aerth/webd\n\n"
 
 const DefaultListenAddr = "127.0.0.1:8080"
@@ -27,13 +27,14 @@ func main() {
 
 	// defaults
 	var (
-		doMongo    = false
-		devmode    = false
-		addr       = DefaultListenAddr
-		configpath = "config.json"
-		sslCert    = ""
-		sslKey     = ""
-		sslAddr    = DefaultListenAddrTLS
+		doMongo     = false
+		devmode     = false
+		addr        = DefaultListenAddr
+		configpath  = "config.json"
+		sslCert     = ""
+		sslKey      = ""
+		sslAddr     = DefaultListenAddrTLS
+		showVersion = false
 	)
 
 	// flags
@@ -44,6 +45,7 @@ func main() {
 	flag.StringVar(&sslCert, "sslcert", sslCert, "path to ssl cert")
 	flag.StringVar(&sslKey, "sslkey", sslKey, "path to ssl key")
 	flag.StringVar(&sslAddr, "ssladdr", sslAddr, "listen TLS if cert and key exist")
+	flag.BoolVar(&showVersion, "version", false, "show version and exit")
 	flag.Parse()
 
 	log.SetPrefix("[webd] ")
@@ -57,6 +59,10 @@ func main() {
 	}
 
 	println(logo)
+	println("webd", Version)
+	if showVersion {
+		os.Exit(0)
+	}
 
 	// read config file or stdin
 	var config system.Config
@@ -151,12 +157,6 @@ func main() {
 	// home and 404s (OR rest of files in ./public if config allows)
 	router.Handle("/", CSRF(http.HandlerFunc(s.HomeHandler)))
 
-	// friendly link
-	go func() {
-		<-time.After(time.Second)
-		log.Println("serving:", config.Meta.SiteURL)
-	}()
-
 	// setup greylist
 	var refreshRate time.Duration // none, no auto refresh
 	temporaryBlacklistTime := time.Hour * 24
@@ -171,11 +171,23 @@ func main() {
 
 	// Serve or die!
 	if sslCert != "" && sslKey != "" && config.Meta.ListenAddrTLS != "" {
+		// friendly link
+		go func() {
+			<-time.After(time.Second)
+			log.Println("serving TLS: ", config.Meta.ListenAddrTLS)
+		}()
+
 		go func() {
 			log.Fatalln(http.ListenAndServeTLS(config.Meta.ListenAddrTLS, sslCert, sslKey,
 				glist.Protect(s.HitCounter(router))))
 		}()
 	}
+	// friendly link
+	go func() {
+		<-time.After(time.Second)
+		log.Println("serving HTTP:", config.Meta.ListenAddr)
+		log.Println("View in browser:", config.Meta.SiteURL)
+	}()
 
 	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
 		glist.Protect(s.HitCounter(router))))
