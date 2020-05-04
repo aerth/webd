@@ -65,7 +65,8 @@ func main() {
 	}
 
 	// read config file or stdin
-	var config system.Config
+	var config = new(system.Config)
+	config.Meta.Version = "webd " + Version
 	if configpath == "-" {
 		dec := json.NewDecoder(os.Stdin)
 		if err := dec.Decode(&config); err != nil {
@@ -147,7 +148,7 @@ func main() {
 	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
 
 	for path, dest := range config.ReverseProxy {
-		prx, err := system.ReverseProxyHandler(config, path, dest)
+		prx, err := system.ReverseProxyHandler(*config, path, dest)
 		if err != nil {
 			log.Fatalln(err)
 		}

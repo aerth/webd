@@ -15,6 +15,7 @@ type MetaConfig struct {
 	DevelopmentMode bool                   `json:"devmode"`
 	CopyrightName   string                 `json:"copyright-name"`
 	TemplateData    map[string]interface{} `json:"templatedata"`
+	Version         string                 `json:"-"`
 }
 type Config struct {
 	Meta           MetaConfig        `json:"Meta,omitempty"`
@@ -58,6 +59,10 @@ type SecurityConfig struct {
 
 func checkConfig(config *Config) error {
 	// minimal config needed
+	if config.Meta.Version == "" {
+		config.Meta.Version = "webd"
+	}
+
 	if config.Meta.SiteURL == "" {
 		return fmt.Errorf("config needs Meta.siteurl")
 	}

@@ -26,8 +26,8 @@ import (
 	"github.com/aerth/webd/greylist"
 )
 
-func New(config Config) (*System, error) {
-	if err := checkConfig(&config); err != nil {
+func New(config *Config) (*System, error) {
+	if err := checkConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -56,7 +56,9 @@ func New(config Config) (*System, error) {
 		log.Printf("Parsed %d templates in %s", len(templates), time.Since(t1))
 	}
 
-	sys := &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: config, Stats: Stats{t1: time.Now()}}
+	sys := &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: *config, Stats: Stats{t1: time.Now()}}
+
+	sys.config.Meta.TemplateData["Version"] = sys.config.Meta.Version
 
 	// config good, initialize database
 	if err := sys.InitDB(config.DoMongo); err != nil {
