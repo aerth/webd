@@ -2,8 +2,6 @@ package system
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -106,96 +104,6 @@ func (s *System) hasher(in string, salt []byte) []byte {
 	return argon2.IDKey(append(salt, []byte(in)...), salt, 2, 1024, 2, 32)
 }
 
-func (s *System) doLogin(p LoginPacket) (*User, error) {
-	u, err := s.getUserByLogin(p.User)
-	if err != nil {
-		log.Println("doLogin: getUserByLogin: error:", err)
-		return nil, err
-	}
-	if !s.checkUserPass(u.ID, p.Pass) {
-		log.Println("checkuserpass failed")
-		return nil, ErrBadCredentials
-	}
-	p.Pass = ""
-
-	// session key
-	authkeyb := make([]byte, 32, 32)
-	rand.Read(authkeyb)
-	authkey := fmt.Sprintf("%02x", authkeyb)
-	err = s.boltdbUpdate("authkeys", p.User, authkeyb)
-	if err != nil {
-		return nil, err
-	}
-	u.authkey = authkey
-
-	return u, nil
-}
-
 var ErrBadCredentials = errors.New("bad credentials")
 var ErrExists = errors.New("record already exists")
-
-func (s *System) doSignup(p SignupPacket) (*User, error) {
-	log.Printf("signup new user: %q", p.User)
-	rp, err := s.boltdbFetch("password", p.User)
-	if err == nil {
-		log.Println("user already exists")
-		return nil, ErrExists
-	}
-	if rp != nil {
-		return nil, ErrExists
-	}
-	u, err := s.getUserByLogin(p.User)
-	if err == nil {
-		return nil, ErrExists
-	}
-	u = &User{
-		ID:   p.User,
-		Name: p.User,
-	}
-
-	// generate new salt and hash with pw
-	salt := make([]byte, 32, 32)
-	rand.Read(salt)
-	hashed := s.hasher(p.Pass, salt)
-
-	saltAndHash := make([]byte, 64, 64)
-	if copy(saltAndHash, salt)+
-		copy(saltAndHash[32:], hashed) != 64 {
-		log.Println("bad copy")
-		return nil, ErrNotFound
-	}
-	err = s.boltdbUpdate("password", p.User, saltAndHash)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Println("Checking usr password:", u.ID, p.Pass)
-	if !s.checkUserPass(u.ID, p.Pass) {
-		log.Println("checkuserpass failed")
-		return nil, ErrBadCredentials
-	}
-
-	b, err := json.Marshal(u)
-	if err != nil {
-		return nil, err
-	}
-
-	err = s.boltdbUpdate("userinfo", p.User, b)
-	if err != nil {
-		return nil, err
-	}
-
-	authkeyb := make([]byte, 32)
-	rand.Read(authkeyb)
-	authkey := fmt.Sprintf("%02x", authkeyb)
-	err = s.boltdbUpdate("authkeys", p.User, authkeyb)
-	if err != nil {
-		return nil, err
-	}
-	u.authkey = authkey
-
-	log.Println("Inserted password record:", p.User)
-	return u, nil
-}
-
 var ErrNotFound = errors.New("not found")
