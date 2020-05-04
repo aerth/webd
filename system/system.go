@@ -59,6 +59,11 @@ func New(config Config) *System {
 					if err := s.ReloadConfig(); err != nil {
 						log.Println("Error reloading config:", err)
 					}
+				case syscall.SIGUSR2:
+					log.Println("reloading templates")
+					if err := s.ReloadTemplates(); err != nil {
+						log.Println("Error reloading templates:", err)
+					}
 				default:
 					os.Exit(111)
 				}
@@ -71,6 +76,24 @@ func New(config Config) *System {
 
 }
 
+func (s *System) ReloadTemplates() error {
+	var templates = map[string]*template.Template{}
+	partials, err := filepath.Glob(filepath.Join("www", "templates", "_partials", "*.html"))
+	if err != nil {
+		return fmt.Errorf("couldn't enumerate partial templates")
+	}
+	log.Printf("Found %d partial templates: %q", len(partials), partials)
+	for _, name := range []string{"signup.html", "login.html", "index.html", "dashboard.html"} {
+		log.Println("Parsing template:", name)
+		templates[name], err = template.New(name).ParseFiles(append([]string{filepath.Join("www", "templates", name)}, partials...)...)
+		if err != nil {
+			return fmt.Errorf("couldn't parse template %q: %v", name, err)
+		}
+	}
+	log.Printf("Parsed %d templates", len(templates))
+	s.templates = templates
+	return nil
+}
 func (s *System) ReloadConfig() error {
 	if s.config.ConfigFilePath == "" {
 		return fmt.Errorf("can't reload config, was set using stdin")

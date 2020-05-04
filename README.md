@@ -13,13 +13,16 @@ stupid web app
   * Anti-frame protection via Content-Security-Policy
   * Persistent sessions across reboots (BoltDB)
   * Templates! ([docs](https://golang.org/pkg/text/template/))
+  * Reload templates from file by sending USR2 signal (`pkill -usr2 webd`)
+  * Reload config from file by sending USR1 signal (`pkill -usr1 webd`)
 
 # Config (config.json)
 
 Variables exposed in templates
+
 SiteURL is used for content-security-policy headers
+
 `templatedata` used exclusively in templates
-Reload config from file by sending USR1 signal (`pkill -usr1 webd`)
 
 ```
   "Meta": {
