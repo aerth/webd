@@ -1,16 +1,18 @@
 package system
 
 type MetaConfig struct {
-	SiteName        string `json:"sitename"`
-	SiteURL         string `json:"siteurl"`
-	DevelopmentMode bool   `json:"devmode"`
-	CopyrightName   string `json:"copyright-name"`
+	SiteName        string            `json:"sitename"`
+	SiteURL         string            `json:"siteurl"`
+	DevelopmentMode bool              `json:"devmode"`
+	CopyrightName   string            `json:"copyright-name"`
+	TemplateData    map[string]string `json:"templatedata"`
 }
 type Config struct {
-	Meta         MetaConfig        `json:"Meta,omitempty"`
-	Keys         KeyConfig         `json:"Keys,omitempty"`
-	Sec          SecurityConfig    `json:"Security,omitempty"`
-	ReverseProxy map[string]string `json:"ReverseProxy"`
+	Meta           MetaConfig        `json:"Meta,omitempty"`
+	Keys           KeyConfig         `json:"Keys,omitempty"`
+	Sec            SecurityConfig    `json:"Security,omitempty"`
+	ReverseProxy   map[string]string `json:"ReverseProxy"`
+	ConfigFilePath string            `json:"-"` // path to config for reload, empty if stdin
 }
 
 type KeyConfig struct {

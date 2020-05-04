@@ -18,12 +18,18 @@ stupid web app
 
 Variables exposed in templates
 SiteURL is used for content-security-policy headers
+`templatedata` used exclusively in templates
+Reload config from file by sending USR1 signal (`pkill -usr1 webd`)
 
 ```
   "Meta": {
     "siteurl": "http://127.0.0.1:8080",
     "sitename": "Test Application",
-    "copyright-name": "My Company, Inc"
+    "copyright-name": "My Company, Inc",
+    "templatedata": {
+      "arbitrary-variable-name": "value",
+      "var2": "only-string-values"
+    }
   },
 ```
 

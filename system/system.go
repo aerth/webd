@@ -2,12 +2,16 @@ package system
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"log"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	// for pw
@@ -40,7 +44,48 @@ func New(config Config) *System {
 	}
 	log.Printf("Parsed %d templates", len(templates))
 
-	return &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: config, Stats: Stats{t1: time.Now()}}
+	sys := &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: config, Stats: Stats{t1: time.Now()}}
+
+	go func(s *System) {
+		sigchan := make(chan os.Signal)
+		signal.Notify(sigchan, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
+		for {
+			select {
+			case sig := <-sigchan:
+				log.Println("got signal:", sig.String())
+				switch sig {
+				case syscall.SIGUSR1:
+					log.Println("reloading config")
+					if err := s.ReloadConfig(); err != nil {
+						log.Println("Error reloading config:", err)
+					}
+				default:
+					os.Exit(111)
+				}
+			}
+		}
+
+	}(sys)
+
+	return sys
+
+}
+
+func (s *System) ReloadConfig() error {
+	if s.config.ConfigFilePath == "" {
+		return fmt.Errorf("can't reload config, was set using stdin")
+	}
+	f, err := os.Open(s.config.ConfigFilePath)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	dec := json.NewDecoder(f)
+	if err := dec.Decode(&s.config); err != nil {
+		return err
+	}
+	log.Println("reloaded config from", s.config.ConfigFilePath)
+	return nil
 }
 
 type System struct {

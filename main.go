@@ -54,21 +54,22 @@ func main() {
 	if configpath == "-" {
 		dec := json.NewDecoder(os.Stdin)
 		if err := dec.Decode(&config); err != nil {
-			log.Fatalln(err)
+			log.Fatalln("error decoding json config:", err)
 		}
 		log.Println("read config from stdin")
 	} else {
 		f, err := os.Open(configpath)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatalln("error opening config file:", err)
 		}
 		dec := json.NewDecoder(f)
 		if err := dec.Decode(&config); err != nil {
 			f.Close()
-			log.Fatalln(err)
+			log.Fatalln("error decoding json config:", err)
 		}
 		f.Close()
 		log.Println("read config from", configpath)
+		config.ConfigFilePath = configpath
 	}
 
 	// minimal config needed
@@ -86,6 +87,13 @@ func main() {
 	}
 	if config.Sec.CookieName == "" {
 		log.Fatalln("config needs Security.cookie-name")
+	}
+
+	if len(config.Meta.TemplateData) > 0 {
+		log.Println("Found template data in config.json:")
+		for k, v := range config.Meta.TemplateData {
+			log.Println(k, "=", v)
+		}
 	}
 
 	// override is $PORT or $SITEURL are used (heroku, etc?)

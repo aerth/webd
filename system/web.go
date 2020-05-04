@@ -71,6 +71,7 @@ func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname str
 		"uptime":         time.Since(s.Stats.t1).Truncate(time.Second),
 		"sitename":       s.config.Meta.SiteName,
 		"copyrightname":  s.config.Meta.CopyrightName,
+		"meta":           s.config.Meta.TemplateData,
 	})
 }
 
