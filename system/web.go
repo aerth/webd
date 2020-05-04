@@ -348,10 +348,14 @@ func (s *System) HomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *System) StaticHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions || r.Method == http.MethodHead {
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "bad method", http.StatusMethodNotAllowed)
 		return
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Expires", time.Now().Add(time.Hour*24).UTC().Truncate(time.Second).Format(http.TimeFormat))
 	filename := filepath.Join("www", "public", r.URL.Path)
 	http.ServeFile(w, r, filename)
