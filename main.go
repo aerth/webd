@@ -5,11 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/aerth/webd/greylist"
@@ -24,17 +20,20 @@ var logo = "" +
 	"                __        __\n _      _____  / /_  ____/ /\n| | /| / / _ \\/ __ \\/ __  /   " + info + "| |/ |/ /  __/ /_/ / /_/ /  \n|__/|__/\\___/_.___/\\__,_/   Source: " +
 	"https://github.com/aerth/webd\n\n"
 
+const DefaultListenAddr = "127.0.0.1:8080"
+const DefaultListenAddrTLS = "127.0.0.1:1443"
+
 func main() {
 
 	// defaults
 	var (
 		doMongo    = false
 		devmode    = false
-		addr       = "127.0.0.1:8080"
+		addr       = DefaultListenAddr
 		configpath = "config.json"
 		sslCert    = ""
 		sslKey     = ""
-		sslAddr    = ":443"
+		sslAddr    = DefaultListenAddrTLS
 	)
 
 	// flags
@@ -49,6 +48,7 @@ func main() {
 
 	log.SetPrefix("[webd] ")
 
+	// log format and pprof debug server
 	if devmode {
 		log.SetFlags(log.Lshortfile)
 		go func() {
@@ -81,58 +81,23 @@ func main() {
 		config.ConfigFilePath = configpath
 	}
 
+	// override config with flag
 	if devmode {
 		config.Meta.DevelopmentMode = devmode
 	}
 
-	// minimal config needed
-	if config.Meta.SiteURL == "" {
-		log.Fatalln("config needs Meta.siteurl")
-	}
-	if config.Sec.BlockKey == "" {
-		log.Fatalln("config needs Security.block-key")
-	}
-	if config.Sec.CSRFKey == "" {
-		log.Fatalln("config needs Security.csrf-key")
-	}
-	if config.Sec.HashKey == "" {
-		log.Fatalln("config needs Security.hash-key")
-	}
-	if config.Sec.CookieName == "" {
-		log.Fatalln("config needs Security.cookie-name")
+	if addr != DefaultListenAddr || config.Meta.ListenAddr == "" {
+		config.Meta.ListenAddr = addr
 	}
 
-	if config.Meta.DevelopmentMode && len(config.Meta.TemplateData) > 0 {
-		log.Println("Found template data in config.json:")
-		for k, v := range config.Meta.TemplateData {
-			log.Println(k, "=", v)
-		}
+	if sslAddr != DefaultListenAddrTLS || config.Meta.ListenAddrTLS == "" {
+		config.Meta.ListenAddrTLS = sslAddr
 	}
 
-	// override is $PORT or $SITEURL are used (heroku, etc?)
-	if port := os.Getenv("PORT"); port != "" {
-		log.Println("overriding flags and config file with $PORT", port)
-		addr = ":" + port
-	}
-	if siteurl := os.Getenv("SITEURL"); siteurl != "" {
-		log.Println("overriding flags and config file with $SITEURL", siteurl)
-		config.Meta.SiteURL = siteurl
-	}
-
-	// check www/public exists
-	_, err := os.Open(filepath.Join("www", "public"))
+	// check config and init db
+	s, err := system.New(config)
 	if err != nil {
-		log.Println("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public?")
-		log.Fatalln("Try: make www/public")
-	}
-
-	// config good. lets start
-	s := system.New(config)
-	if err := s.InitDB(doMongo); err != nil {
-		if err.Error() == "timeout" {
-			log.Fatalln("got timeout while trying to open password database. is another process using it?")
-		}
-		log.Fatalln(err)
+		log.Fatalln("boot error:", err)
 	}
 
 	// TODO: only state-changing pages in dashboard
@@ -150,6 +115,7 @@ func main() {
 			})
 		}
 	*/
+
 	// Router
 	// TODO: move this into New() ?
 	router := &http.ServeMux{}
@@ -175,36 +141,10 @@ func main() {
 	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
 
 	for path, dest := range config.ReverseProxy {
-		path := path
-		dest := dest
-		if config.Meta.DevelopmentMode {
-			log.Printf("adding reverse proxy: %s=>%s", path, dest)
-		}
-		target, err := url.Parse(dest)
+		prx, err := system.ReverseProxyHandler(config, path, dest)
 		if err != nil {
-			log.Fatalln("couldn't parse reverse proxy destination:", err)
+			log.Fatalln(err)
 		}
-		prx := httputil.NewSingleHostReverseProxy(target)
-		// custom director to remove cookies, remove path prefix
-		prx.Director = func(req *http.Request) {
-			target := target
-			// clear cookies
-			req.Header.Del("Cookie")
-			req.Host = target.Host
-			req.URL.Scheme = target.Scheme
-			req.URL.Host = target.Host
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, strings.TrimSuffix(path, "/"))
-			if target.RawQuery == "" || req.URL.RawQuery == "" {
-				req.URL.RawQuery = target.RawQuery + req.URL.RawQuery
-			} else {
-				req.URL.RawQuery = target.RawQuery + "&" + req.URL.RawQuery
-			}
-			if _, ok := req.Header["User-Agent"]; !ok {
-				req.Header.Set("User-Agent", "")
-			}
-			log.Printf("relaying: %s://%s%s %s", req.URL.Scheme, req.Host, req.URL.Path, req.URL.Query().Encode())
-		}
-		prx.ErrorLog = log.New(os.Stderr, "ReverseProxy: ", log.LstdFlags)
 		router.Handle(path, prx)
 	}
 
@@ -230,12 +170,13 @@ func main() {
 	s.SetGreylist(glist)
 
 	// Serve or die!
-	if sslCert != "" && sslKey != "" {
+	if sslCert != "" && sslKey != "" && config.Meta.ListenAddrTLS != "" {
 		go func() {
-			log.Fatalln(http.ListenAndServeTLS(sslAddr, sslCert, sslKey,
+			log.Fatalln(http.ListenAndServeTLS(config.Meta.ListenAddrTLS, sslCert, sslKey,
 				glist.Protect(s.HitCounter(router))))
 		}()
 	}
-	log.Fatalln(http.ListenAndServe(addr,
+
+	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
 		glist.Protect(s.HitCounter(router))))
 }

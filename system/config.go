@@ -1,6 +1,15 @@
 package system
 
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+)
+
 type MetaConfig struct {
+	ListenAddr      string                 `json:"listen"`
+	ListenAddrTLS   string                 `json:"listentls"`
 	SiteName        string                 `json:"sitename"`
 	SiteURL         string                 `json:"siteurl"`
 	DevelopmentMode bool                   `json:"devmode"`
@@ -12,7 +21,8 @@ type Config struct {
 	Keys           KeyConfig         `json:"Keys,omitempty"`
 	Sec            SecurityConfig    `json:"Security,omitempty"`
 	ReverseProxy   map[string]string `json:"ReverseProxy"`
-	ConfigFilePath string            `json:"-"` // path to config for reload, empty if stdin
+	ConfigFilePath string            `json:"-"` // unused in config.json, path to config for reload, empty if stdin
+	DoMongo        bool              `json:"use-mongo"`
 }
 
 type KeyConfig struct {
@@ -44,4 +54,41 @@ type SecurityConfig struct {
 	ServePublic bool   `json:"servepublic"` // Serve All Unhandled URL in ./public
 	BoltDB      string `json:"database"`
 	OpenSignups bool   `json:"open-signups"`
+}
+
+func checkConfig(config *Config) error {
+	// minimal config needed
+	if config.Meta.SiteURL == "" {
+		return fmt.Errorf("config needs Meta.siteurl")
+	}
+	if config.Sec.BlockKey == "" {
+		return fmt.Errorf("config needs Security.block-key")
+	}
+	if config.Sec.CSRFKey == "" {
+		return fmt.Errorf("config needs Security.csrf-key")
+	}
+	if config.Sec.HashKey == "" {
+		return fmt.Errorf("config needs Security.hash-key")
+	}
+	if config.Sec.CookieName == "" {
+		return fmt.Errorf("config needs Security.cookie-name")
+	}
+
+	// override is $PORT or $SITEURL are used (heroku, etc?)
+	if port := os.Getenv("PORT"); port != "" {
+		log.Println("overriding flags and config file with $PORT", port)
+		config.Meta.ListenAddr = ":" + port
+	}
+	if siteurl := os.Getenv("SITEURL"); siteurl != "" {
+		log.Println("overriding flags and config file with $SITEURL", siteurl)
+		config.Meta.SiteURL = siteurl
+	}
+
+	// check www/public exists
+	_, err := os.Open(filepath.Join("www", "public"))
+	if err != nil {
+		return fmt.Errorf("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public? Try: make www/public")
+	}
+
+	return nil
 }

@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -442,4 +444,38 @@ func (s *System) addBadAttempt(r *http.Request) {
 		log.Println("adding to blacklist:", ipaddr)
 		s.greylist.Blacklist(r)
 	}
+}
+
+func ReverseProxyHandler(config Config, path, dest string) (http.Handler, error) {
+	if config.Meta.DevelopmentMode {
+		log.Printf("adding reverse proxy: %s=>%s", path, dest)
+	}
+	target, err := url.Parse(dest)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse reverse proxy destination: %v", err)
+	}
+	prx := httputil.NewSingleHostReverseProxy(target)
+	// custom director to remove cookies, remove path prefix
+	prx.Director = func(req *http.Request) {
+		target := target
+		// clear cookies
+		req.Header.Del("Cookie")
+		req.Host = target.Host
+		req.URL.Scheme = target.Scheme
+		req.URL.Host = target.Host
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, strings.TrimSuffix(path, "/"))
+		if target.RawQuery == "" || req.URL.RawQuery == "" {
+			req.URL.RawQuery = target.RawQuery + req.URL.RawQuery
+		} else {
+			req.URL.RawQuery = target.RawQuery + "&" + req.URL.RawQuery
+		}
+		if _, ok := req.Header["User-Agent"]; !ok {
+			req.Header.Set("User-Agent", "")
+		}
+
+		// log request
+		log.Printf("relaying: %s://%s%s %s %s", req.URL.Scheme, req.Host, req.URL.Path, req.URL.Query().Encode(), logr(req))
+	}
+	prx.ErrorLog = log.New(os.Stderr, "ReverseProxy: ", log.LstdFlags)
+	return prx, nil
 }

@@ -26,7 +26,11 @@ import (
 	"github.com/aerth/webd/greylist"
 )
 
-func New(config Config) *System {
+func New(config Config) (*System, error) {
+	if err := checkConfig(&config); err != nil {
+		return nil, err
+	}
+
 	t1 := time.Now()
 	var hashKey = []byte(config.Sec.HashKey)
 	var blockKey = []byte(config.Sec.BlockKey)
@@ -54,6 +58,15 @@ func New(config Config) *System {
 
 	sys := &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: config, Stats: Stats{t1: time.Now()}}
 
+	// config good, initialize database
+	if err := sys.InitDB(config.DoMongo); err != nil {
+		if err.Error() == "timeout" {
+			return nil, fmt.Errorf("got timeout while trying to open password database. is another process using it?")
+		}
+		return nil, err
+	}
+
+	// catch signals to reload config, templates, or quit.
 	go func(s *System) {
 		sigchan := make(chan os.Signal)
 		signal.Notify(sigchan, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
@@ -80,7 +93,7 @@ func New(config Config) *System {
 
 	}(sys)
 
-	return sys
+	return sys, nil
 
 }
 
