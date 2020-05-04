@@ -31,7 +31,11 @@ SiteURL is used for content-security-policy headers
     "copyright-name": "My Company, Inc",
     "templatedata": {
       "arbitrary-variable-name": "value",
-      "var2": "only-string-values"
+      "var2": "string-value",
+      "varNum": 123,
+      "varNested": {
+        "nest": 321
+      }
     }
   },
 ```

@@ -1,11 +1,11 @@
 package system
 
 type MetaConfig struct {
-	SiteName        string            `json:"sitename"`
-	SiteURL         string            `json:"siteurl"`
-	DevelopmentMode bool              `json:"devmode"`
-	CopyrightName   string            `json:"copyright-name"`
-	TemplateData    map[string]string `json:"templatedata"`
+	SiteName        string                 `json:"sitename"`
+	SiteURL         string                 `json:"siteurl"`
+	DevelopmentMode bool                   `json:"devmode"`
+	CopyrightName   string                 `json:"copyright-name"`
+	TemplateData    map[string]interface{} `json:"templatedata"`
 }
 type Config struct {
 	Meta           MetaConfig        `json:"Meta,omitempty"`
