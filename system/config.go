@@ -43,4 +43,5 @@ type SecurityConfig struct {
 	Blacklist   string `json:"blacklist"`
 	ServePublic bool   `json:"servepublic"` // Serve All Unhandled URL in ./public
 	BoltDB      string `json:"database"`
+	OpenSignups bool   `json:"open-signups"`
 }

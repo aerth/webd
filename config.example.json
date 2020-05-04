@@ -17,7 +17,8 @@
     "whitelist": "whitelist.txt",
     "blacklist": "blacklist.txt",
     "servepublic": false,
-    "database": "Passwords.db"
+    "database": "Passwords.db",
+    "open-signups": true
   },
   "ReverseProxy": {
     "/bin/": "https://httpbin.org",

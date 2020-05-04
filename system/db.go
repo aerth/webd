@@ -22,7 +22,9 @@ import (
 
 // get userinfo by login ID
 func (s *System) getUserByLogin(name string) (*User, error) {
-	log.Println("getUserByLogin()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("getUserByLogin()")
+	}
 	b, err := s.boltdbFetch("userinfo", name)
 	if err != nil {
 		log.Printf("error getting user %q by id: %v", name, err)
@@ -42,7 +44,9 @@ func (s *System) getUserByLogin(name string) (*User, error) {
 
 // simple check hashed pw vs known hashed pw
 func (s *System) checkUserPass(id string, clearPass string) bool {
-	log.Println("checkUserPass()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("checkUserPass()")
+	}
 	realHashedPassword, err := s.boltdbFetch("password", id)
 	if err != nil {
 		log.Println("error fetching user/pass:", err)
@@ -60,7 +64,9 @@ func (s *System) checkUserPass(id string, clearPass string) bool {
 
 // dbStore uses mongo
 func (s *System) dbStore(method string, id string, val interface{}) error {
-	log.Println("dbStore()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("dbStore()")
+	}
 	dbclient, ok := s.dbclient.(*mongo.Client)
 	if !ok {
 		return fmt.Errorf("got error")
@@ -74,7 +80,9 @@ func (s *System) dbStore(method string, id string, val interface{}) error {
 
 // dbFetch uses mongo
 func (s *System) dbFetch(method string, id string, result interface{}) error {
-	log.Println("dbFetch()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("dbFetch()")
+	}
 	dbclient, ok := s.dbclient.(*mongo.Client)
 	if !ok {
 		return fmt.Errorf("got error")
@@ -93,7 +101,9 @@ func (s *System) dbFetch(method string, id string, result interface{}) error {
 
 // boltdbUpdate uses password db
 func (s *System) boltdbUpdate(bucket string, id string, val []byte) error {
-	log.Println("boltdbUpdate()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("boltdbUpdate()")
+	}
 	if err := s.passwdDB.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
 		err := b.Put([]byte(id), val)
@@ -106,7 +116,9 @@ func (s *System) boltdbUpdate(bucket string, id string, val []byte) error {
 
 // boltdbFetch uses password db, if len == 0, ErrNotFound is returned
 func (s *System) boltdbFetch(bucket, id string) ([]byte, error) {
-	log.Println("boltdbFetch()")
+	if s.config.Meta.DevelopmentMode {
+		log.Println("boltdbFetch()")
+	}
 	var pass []byte
 	if err := s.passwdDB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket))
@@ -126,7 +138,7 @@ func (s *System) doLogin(p LoginPacket) (*User, error) {
 	u, err := s.getUserByLogin(p.User)
 	if err != nil {
 		log.Println("doLogin: getUserByLogin: error:", err)
-		return nil, err
+		return nil, ErrBadCredentials
 	}
 	if !s.checkUserPass(u.ID, p.Pass) {
 		log.Println("checkuserpass failed")
@@ -140,7 +152,8 @@ func (s *System) doLogin(p LoginPacket) (*User, error) {
 	authkey := fmt.Sprintf("%02x", authkeyb)
 	err = s.boltdbUpdate("authkeys", p.User, authkeyb)
 	if err != nil {
-		return nil, err
+		log.Println("doLogin: updating db error:", err)
+		return nil, ErrBadCredentials
 	}
 	u.authkey = authkey
 
@@ -148,6 +161,9 @@ func (s *System) doLogin(p LoginPacket) (*User, error) {
 }
 
 func (s *System) doSignup(p SignupPacket) (*User, error) {
+	if !s.config.Sec.OpenSignups {
+		return nil, fmt.Errorf("signups are closed")
+	}
 	log.Printf("signup new user: %q", p.User)
 	rp, err := s.boltdbFetch("password", p.User)
 	if err == nil {
@@ -179,7 +195,8 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 	}
 	err = s.boltdbUpdate("password", p.User, saltAndHash)
 	if err != nil {
-		return nil, err
+		log.Println("error updating db in signup:", err)
+		return nil, ErrNotFound
 	}
 
 	log.Println("Checking usr password:", u.ID, p.Pass)
@@ -190,12 +207,14 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 
 	b, err := json.Marshal(u)
 	if err != nil {
-		return nil, err
+		log.Println("error marshalling user in signup:", err)
+		return nil, ErrNotFound
 	}
 
 	err = s.boltdbUpdate("userinfo", p.User, b)
 	if err != nil {
-		return nil, err
+		log.Println("error updating db in signup:", err)
+		return nil, ErrNotFound
 	}
 
 	authkeyb := make([]byte, 32)
@@ -203,7 +222,8 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 	authkey := fmt.Sprintf("%02x", authkeyb)
 	err = s.boltdbUpdate("authkeys", p.User, authkeyb)
 	if err != nil {
-		return nil, err
+		log.Println("error updating db in signup:", err)
+		return nil, ErrNotFound
 	}
 	u.authkey = authkey
 
