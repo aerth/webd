@@ -38,6 +38,8 @@ const MaxAttempts = 3
 func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname string, userinfo *User) {
 	//log.Println("executing template:", tname)
 	s.SetCSPHeader(w)
+	w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
+	w.Header().Set("X-CSRF-Token", csrf.Token(r))
 	t, ok := s.templates[tname]
 	if !ok {
 		http.ServeFile(w, r, filepath.Join("www", "public", tname))
@@ -111,6 +113,12 @@ func (s *System) readCookie(r *http.Request) (map[string]string, error) {
 
 }
 func (s *System) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "bad method", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
+	w.Header().Set("X-CSRF-Token", csrf.Token(r))
 	log.Println("logging out user!")
 	cookieinfo, err := s.readCookie(r)
 	if err != nil {
@@ -175,10 +183,11 @@ func (s *System) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// display form or process login
 	switch r.Method {
 	case http.MethodGet:
-		w.Header().Set("X-CSRF-Token", csrf.Token(r))
 		s.serveTemplate(w, r, "login.html", nil)
 		return
 	case http.MethodPost:
+		w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
+		w.Header().Set("X-CSRF-Token", csrf.Token(r))
 		user := r.FormValue("email")
 		pass := r.FormValue("password")
 		u, err := s.doLogin(LoginPacket{User: user, Pass: pass})
@@ -225,6 +234,7 @@ func (s *System) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
 	w.Header().Set("X-CSRF-Token", csrf.Token(r))
 
 	switch r.Method {
@@ -232,6 +242,9 @@ func (s *System) DashboardHandler(w http.ResponseWriter, r *http.Request) {
 		s.serveTemplate(w, r, "dashboard.html", userinfo)
 		return
 	case http.MethodPost:
+		w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
+		w.Header().Set("X-CSRF-Token", csrf.Token(r))
+		return
 	default:
 		http.Error(w, "bad method", http.StatusMethodNotAllowed)
 		return
@@ -259,10 +272,11 @@ func (s *System) SignupHandler(w http.ResponseWriter, r *http.Request) {
 	// display form or process signup
 	switch r.Method {
 	case http.MethodGet:
-		w.Header().Set("X-CSRF-Token", csrf.Token(r))
 		s.serveTemplate(w, r, "signup.html", nil)
 		return
 	case http.MethodPost:
+		w.Header().Set("Access-Control-Allow-Origin", s.config.Meta.SiteURL)
+		w.Header().Set("X-CSRF-Token", csrf.Token(r))
 		user := r.FormValue("email")
 		pass := r.FormValue("password")
 		u, err := s.doSignup(SignupPacket{User: user, Pass: pass})
