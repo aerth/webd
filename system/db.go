@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	// for data
@@ -233,7 +234,20 @@ func (s *System) InitDB(doMongo bool) error {
 
 	log.Println("connecting to bolt DB")
 
-	db, err := bolt.Open("Passwords.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	filename := s.config.Sec.BoltDB
+	if filename == "" {
+		filename = "Passwords.db"
+	}
+
+	if _, err := os.Stat(filename); err != nil {
+		if os.IsNotExist(err) {
+			log.Println("creating new password database:", filename)
+		} else {
+			log.Printf("couldn't get fileinfo for password db %q: %v", filename, err)
+		}
+	}
+
+	db, err := bolt.Open(filename, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return err
 	}

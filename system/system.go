@@ -26,6 +26,7 @@ import (
 )
 
 func New(config Config) *System {
+	t1 := time.Now()
 	var hashKey = []byte(config.Sec.HashKey)
 	var blockKey = []byte(config.Sec.BlockKey)
 	if config.Meta.DevelopmentMode {
@@ -37,12 +38,18 @@ func New(config Config) *System {
 	if err != nil {
 		log.Fatalln("couldn't enumerate partial templates")
 	}
-	log.Printf("Found %d partial templates: %q", len(partials), partials)
+	if config.Meta.DevelopmentMode {
+		log.Printf("Found %d partial templates: %q", len(partials), partials)
+	}
 	for _, name := range []string{"signup.html", "login.html", "index.html", "dashboard.html"} {
-		log.Println("Parsing template:", name)
+		if config.Meta.DevelopmentMode {
+			log.Println("Parsing template:", name)
+		}
 		templates[name] = template.Must(template.New(name).ParseFiles(append([]string{filepath.Join("www", "templates", name)}, partials...)...))
 	}
-	log.Printf("Parsed %d templates", len(templates))
+	if config.Meta.DevelopmentMode {
+		log.Printf("Parsed %d templates in %s", len(templates), time.Since(t1))
+	}
 
 	sys := &System{cookies: s, templates: templates, devmode: config.Meta.DevelopmentMode, badguys: make(map[string]*uint32), config: config, Stats: Stats{t1: time.Now()}}
 
@@ -77,20 +84,25 @@ func New(config Config) *System {
 }
 
 func (s *System) ReloadTemplates() error {
+	t1 := time.Now()
 	var templates = map[string]*template.Template{}
 	partials, err := filepath.Glob(filepath.Join("www", "templates", "_partials", "*.html"))
 	if err != nil {
 		return fmt.Errorf("couldn't enumerate partial templates")
 	}
-	log.Printf("Found %d partial templates: %q", len(partials), partials)
+	if s.config.Meta.DevelopmentMode {
+		log.Printf("Found %d partial templates: %q", len(partials), partials)
+	}
 	for _, name := range []string{"signup.html", "login.html", "index.html", "dashboard.html"} {
-		log.Println("Parsing template:", name)
+		if s.config.Meta.DevelopmentMode {
+			log.Println("Parsing template:", name)
+		}
 		templates[name], err = template.New(name).ParseFiles(append([]string{filepath.Join("www", "templates", name)}, partials...)...)
 		if err != nil {
 			return fmt.Errorf("couldn't parse template %q: %v", name, err)
 		}
 	}
-	log.Printf("Parsed %d templates", len(templates))
+	log.Printf("Parsed %d templates", len(templates), time.Since(t1))
 	s.templates = templates
 	return nil
 }

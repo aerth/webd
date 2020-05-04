@@ -19,6 +19,11 @@ import (
 	_ "net/http/pprof"
 )
 
+var info = "webd superb application of the web\n"
+var logo = "" +
+	"                __        __\n _      _____  / /_  ____/ /\n| | /| / / _ \\/ __ \\/ __  /   " + info + "| |/ |/ /  __/ /_/ / /_/ /  \n|__/|__/\\___/_.___/\\__,_/   Source: " +
+	"https://github.com/aerth/webd\n\n"
+
 func main() {
 
 	// defaults
@@ -42,12 +47,16 @@ func main() {
 	flag.StringVar(&sslAddr, "ssladdr", sslAddr, "listen TLS if cert and key exist")
 	flag.Parse()
 
+	log.SetPrefix("[webd] ")
+
 	if devmode {
 		log.SetFlags(log.Lshortfile)
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+
+	println(logo)
 
 	// read config file or stdin
 	var config system.Config
@@ -72,6 +81,10 @@ func main() {
 		config.ConfigFilePath = configpath
 	}
 
+	if devmode {
+		config.Meta.DevelopmentMode = devmode
+	}
+
 	// minimal config needed
 	if config.Meta.SiteURL == "" {
 		log.Fatalln("config needs Meta.siteurl")
@@ -89,7 +102,7 @@ func main() {
 		log.Fatalln("config needs Security.cookie-name")
 	}
 
-	if len(config.Meta.TemplateData) > 0 {
+	if config.Meta.DevelopmentMode && len(config.Meta.TemplateData) > 0 {
 		log.Println("Found template data in config.json:")
 		for k, v := range config.Meta.TemplateData {
 			log.Println(k, "=", v)
@@ -98,11 +111,11 @@ func main() {
 
 	// override is $PORT or $SITEURL are used (heroku, etc?)
 	if port := os.Getenv("PORT"); port != "" {
-		log.Println("overriding flags and config file with $PORT")
+		log.Println("overriding flags and config file with $PORT", port)
 		addr = ":" + port
 	}
 	if siteurl := os.Getenv("SITEURL"); siteurl != "" {
-		log.Println("overriding flags and config file with $SITEURL")
+		log.Println("overriding flags and config file with $SITEURL", siteurl)
 		config.Meta.SiteURL = siteurl
 	}
 
@@ -111,10 +124,6 @@ func main() {
 	if err != nil {
 		log.Println("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public?")
 		log.Fatalln("Try: make www/public")
-	}
-
-	if devmode {
-		config.Meta.DevelopmentMode = devmode
 	}
 
 	// config good. lets start
@@ -126,6 +135,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// TODO: only state-changing pages in dashboard
 	CSRF := csrf.Protect([]byte(config.Sec.CSRFKey),
 		csrf.Secure(!devmode), // is dev mode
 		csrf.FieldName("_csrf"),
@@ -167,7 +177,9 @@ func main() {
 	for path, dest := range config.ReverseProxy {
 		path := path
 		dest := dest
-		log.Printf("adding reverse proxy: %s=>%s", path, dest)
+		if config.Meta.DevelopmentMode {
+			log.Printf("adding reverse proxy: %s=>%s", path, dest)
+		}
 		target, err := url.Parse(dest)
 		if err != nil {
 			log.Fatalln("couldn't parse reverse proxy destination:", err)
@@ -202,7 +214,7 @@ func main() {
 	// friendly link
 	go func() {
 		<-time.After(time.Second)
-		log.Println("Serving:", config.Meta.SiteURL)
+		log.Println("serving:", config.Meta.SiteURL)
 	}()
 
 	// setup greylist

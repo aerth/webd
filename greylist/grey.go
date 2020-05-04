@@ -142,7 +142,7 @@ func (l *List) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// get IP
+	// get IP (doesn't work well behind reverse proxy at the moment")
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Printf("cant split hostport %q: %v", r.RemoteAddr, err)
@@ -262,11 +262,11 @@ func (l *List) RefreshLists() {
 	}
 	f.Close()
 
-	var str string
 	if l.refreshRate > 0 {
+		var str string
 		str = fmt.Sprintf(" next refresh is in %s.", l.refreshRate)
+		log.Printf("greylist: refreshed lists from file in %s, whitelisted %d, blacklisted %d.%s", time.Since(t1), l1, l2, str)
 	}
-	log.Printf("greylist: refreshed lists from file in %s, whitelisted %d, blacklisted %d.%s", time.Since(t1), l1, l2, str)
 	/* // debug
 	for i := range l.whitelist {
 			log.Printf("whitelist: %q", i)
