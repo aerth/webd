@@ -4,7 +4,7 @@ stupid web app
 
   * Easy to add new features?
   * Signup, Login, Logout
-  * Members-only dashboard (currently open registration)
+  * Members-only dashboard (open or close registration)
   * Hit Counter
   * Brute-force protection (via temporary blacklisting)
   * Encrypted Cookies (gorilla/securecookie)
