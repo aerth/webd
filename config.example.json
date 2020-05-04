@@ -1,0 +1,33 @@
+{
+  "Meta": {
+    "siteurl": "http://127.0.0.1:8080",
+    "sitename": "Test Application",
+    "copyright-name": "My Company, Inc"
+  },
+  "Security": {
+    "cookie-name": "cookie-name",
+    "csrf-key": "32-byte-long-authkey!",
+    "hash-key": "755d813685f17a1d3a74f984b5111840",
+    "block-key": "caa7040d2f00aaa548d5bab3aaa72100",
+    "whitelist": "whitelist.txt",
+    "blacklist": "blacklist.txt"
+  },
+  "Keys": {
+    "GoogleClientID": "",
+    "GoogleSecretKey": "",
+    "GithubClientID": "",
+    "GithubSecretKey": "",
+    "TwitterClientID": "",
+    "TwitterSecretKey": "",
+    "LinkedInClientID": "",
+    "LinkedInSecretKey": "",
+    "PayPalClientID": "",
+    "PayPalSecretKey": "",
+    "SendgridUser": "",
+    "SendgridPassword": "",
+    "MailgunUser": "",
+    "MailgunPassword": "",
+    "TwilioSID": "",
+    "TwilioAuthToken": ""
+  }
+}
