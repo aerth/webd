@@ -5,3 +5,6 @@
 /bin
 /*.pdf
 /profile
+/*.crt
+/*.key
+/run.sh
