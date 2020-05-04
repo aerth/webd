@@ -119,15 +119,16 @@ func main() {
 		csrf.Secure(!devmode), // is dev mode
 		csrf.FieldName("_csrf"),
 		csrf.CookieName(config.Sec.CookieName+"_csrf"))
-	CSRFPOST := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
-				h.ServeHTTP(w, r)
-				return
-			}
-			CSRF(h).ServeHTTP(w, r)
-		})
-	}
+	/*	CSRFPOST := func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+					h.ServeHTTP(w, r)
+					return
+				}
+				CSRF(h).ServeHTTP(w, r)
+			})
+		}
+	*/
 	// Router
 	// TODO: move this into New() ?
 	router := &http.ServeMux{}
@@ -149,11 +150,10 @@ func main() {
 	router.Handle("/login", CSRF(http.HandlerFunc(s.LoginHandler)))
 	router.Handle("/signup", CSRF(http.HandlerFunc(s.SignupHandler)))
 	router.Handle("/dashboard", CSRF(http.HandlerFunc(s.DashboardHandler)))
-	router.Handle("/contact", CSRFPOST(http.HandlerFunc(s.ContactHandler)))
-	router.Handle("/status", CSRFPOST(http.HandlerFunc(s.StatusHandler)))
-
-	// home and 404s
-	router.Handle("/", CSRFPOST(http.HandlerFunc(s.HomeHandler)))
+	router.Handle("/contact", CSRF(http.HandlerFunc(s.ContactHandler)))
+	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
+	// home and 404s (OR rest of files in ./public if config allows)
+	router.Handle("/", CSRF(http.HandlerFunc(s.HomeHandler)))
 
 	// friendly link
 	go func() {

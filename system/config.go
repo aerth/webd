@@ -31,10 +31,11 @@ type KeyConfig struct {
 }
 
 type SecurityConfig struct {
-	HashKey    string `json:"hash-key"`
-	BlockKey   string `json:"block-key"`
-	CSRFKey    string `json:"csrf-key"`
-	CookieName string `json:"cookie-name"`
-	Whitelist  string `json:"whitelist"`
-	Blacklist  string `json:"blacklist"`
+	HashKey     string `json:"hash-key"`
+	BlockKey    string `json:"block-key"`
+	CSRFKey     string `json:"csrf-key"`
+	CookieName  string `json:"cookie-name"`
+	Whitelist   string `json:"whitelist"`
+	Blacklist   string `json:"blacklist"`
+	ServePublic bool   `json:"servepublic"` // Serve All Unhandled URL in ./public
 }

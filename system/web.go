@@ -310,6 +310,10 @@ func (s *System) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 404s
 	if path != "index.html" {
+		if s.config.Sec.ServePublic {
+			s.StaticHandler(w, r)
+			return
+		}
 		http.NotFound(w, r)
 		return
 	}
