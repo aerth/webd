@@ -158,6 +158,7 @@ func main() {
 
 	for path, dest := range config.ReverseProxy {
 		path := path
+		dest := dest
 		log.Printf("adding reverse proxy: %s=>%s", path, dest)
 		target, err := url.Parse(dest)
 		if err != nil {
@@ -166,6 +167,10 @@ func main() {
 		prx := httputil.NewSingleHostReverseProxy(target)
 		prx.Director = func(req *http.Request) {
 			target := target
+
+			// clear cookies
+			req.Header.Del("Cookie")
+
 			req.Host = target.Host
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
