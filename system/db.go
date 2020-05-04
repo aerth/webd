@@ -1,7 +1,6 @@
 package system
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -59,7 +58,7 @@ func (s *System) checkUserPass(id string, clearPass string) bool {
 	salt := make([]byte, 32, 32)
 	copy(salt, realHashedPassword[:32])
 	hashedPassword := s.hasher(clearPass, salt)
-	return bytes.Compare(hashedPassword, realHashedPassword[32:]) == 0
+	return compareDigest(hashedPassword, realHashedPassword[32:])
 }
 
 // dbStore uses mongo

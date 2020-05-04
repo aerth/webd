@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -182,6 +183,15 @@ func (u User) String() string {
 
 func (s *System) hasher(in string, salt []byte) []byte {
 	return argon2.IDKey(append(salt, []byte(in)...), salt, 2, 1024, 2, 32)
+}
+
+// compareDigest compares equality of two equal-length byte slices
+func compareDigest(a, b []byte) bool {
+	if len(a) != len(b) || len(a) < 32 {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
 var ErrBadCredentials = errors.New("bad credentials")
