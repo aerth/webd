@@ -10,7 +10,8 @@
     "hash-key": "755d813685f17a1d3a74f984b5111840",
     "block-key": "caa7040d2f00aaa548d5bab3aaa72100",
     "whitelist": "whitelist.txt",
-    "blacklist": "blacklist.txt"
+    "blacklist": "blacklist.txt",
+    "servepublic": false
   },
   "Keys": {
     "GoogleClientID": "",
