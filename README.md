@@ -84,6 +84,10 @@ Easy to change in config.json, to serve other applications under subdirectories.
 
 Cookies are removed from the fetch.
 
+Example: https://webd-example.herokuapp.com/bin/get
+
+(note: we don't add X-Amzn-Trace-Id, thats httpbin.)
+
 ```
   "ReverseProxy": {
     "/bin/": "https://httpbin.org",
