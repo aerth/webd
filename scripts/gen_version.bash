@@ -1,8 +1,11 @@
 if [ "x$VERSION" == "x" ]; then
-VERSION=`git describe --dirty --tags --abbrev=6 --always`
-  echo "go-generate: found VERSION=$VERSION"
+  VERSION=$(git describe --dirty --tags --abbrev=6 --always)
+  if [ "x$VERSION" == "x" ]; then
+    VERSION=$(cat VERSION)
+  fi
+  echo "go-generate: found git VERSION=$VERSION"
 else
-  echo "go-generate: using VERSION=$VERSION"
+  echo "go-generate: using given VERSION=$VERSION"
 fi
 
 if [ "x$VERSION" == "x" ]; then

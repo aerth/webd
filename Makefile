@@ -2,11 +2,13 @@ VERSION ?= $(shell git describe --dirty --tags --abbrev=6 --always)
 buildflags ?= -v
 
 buildflags += --ldflags "-X main.Version=$(VERSION)"
-bin/webd: *.go */*.go
+bin/webd: VERSION *.go */*.go
 	mkdir -p bin
 	go build $(buildflags) -o $@ .
 version.go:
 	env VERSION=$(VERSION) go generate -v
+VERSION:
+	git tag | tail -n 1 > VERSION
 run: www/public bin/webd
 	./bin/webd -dev
 www/public:
