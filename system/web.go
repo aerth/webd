@@ -25,12 +25,14 @@ func (s *System) SetCSPHeader(w http.ResponseWriter) {
 		return
 	}
 	val := csp.Header{
-		DefaultSrc:              []string{"'self'", u.Hostname()},
-		ImgSrc:                  []string{"'self'", u.Hostname(), "data:"},
-		UpgradeInsecureRequests: true,
-		ScriptSrc:               []string{"'self'", u.Hostname()}, // prevents inline js in templates! use static files
-		FontSrc:                 []string{"'self'", u.Hostname()},
-		StyleSrc:                []string{"'self'", u.Hostname()},
+		DefaultSrc: []string{"'self'", u.Hostname()},
+		ImgSrc:     []string{"'self'", u.Hostname(), "data:"},
+
+		// UpgradeInsecureRequests: true,
+
+		ScriptSrc: []string{"'self'", u.Hostname()}, // prevents inline js in templates! use static files
+		FontSrc:   []string{"'self'", u.Hostname()},
+		StyleSrc:  []string{"'self'", u.Hostname()},
 	}.String()
 	w.Header().Set("Content-Security-Policy", val)
 }
