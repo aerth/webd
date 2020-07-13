@@ -1,7 +1,6 @@
 package system
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -10,11 +9,11 @@ import (
 	"time"
 
 	// for data
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
+	/*	"go.mongodb.org/mongo-driver/bson"
+		"go.mongodb.org/mongo-driver/mongo"
+		"go.mongodb.org/mongo-driver/mongo/options"
+		"go.mongodb.org/mongo-driver/mongo/readpref"
+	*/
 	// for pw, login info, and session storage
 	bolt "go.etcd.io/bbolt"
 )
@@ -61,6 +60,7 @@ func (s *System) checkUserPass(id string, clearPass string) bool {
 	return compareDigest(hashedPassword, realHashedPassword[32:])
 }
 
+/*
 // dbStore uses mongo
 func (s *System) dbStore(method string, id string, val interface{}) error {
 	if s.config.Meta.DevelopmentMode {
@@ -76,7 +76,6 @@ func (s *System) dbStore(method string, id string, val interface{}) error {
 	_, err := collection.InsertOne(ctx, val)
 	return err
 }
-
 // dbFetch uses mongo
 func (s *System) dbFetch(method string, id string, result interface{}) error {
 	if s.config.Meta.DevelopmentMode {
@@ -98,6 +97,7 @@ func (s *System) dbFetch(method string, id string, result interface{}) error {
 	return nil
 }
 
+*/
 // boltdbUpdate uses password db
 func (s *System) boltdbUpdate(bucket string, id string, val []byte) error {
 	if s.config.Meta.DevelopmentMode {
@@ -232,28 +232,28 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 
 // initialize database connections and create buckets
 func (s *System) InitDB(doMongo bool) error {
-	if doMongo {
-		log.Println("connecting to mongoDB")
-		client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-		if err != nil {
-			return err
-		}
+	/*	if doMongo {
+			log.Println("connecting to mongoDB")
+			client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+			if err != nil {
+				return err
+			}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err = client.Connect(ctx)
-		if err != nil {
-			return err
-		}
-		err = client.Ping(ctx, readpref.Primary())
-		if err != nil {
-			return err
-		}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err = client.Connect(ctx)
+			if err != nil {
+				return err
+			}
+			err = client.Ping(ctx, readpref.Primary())
+			if err != nil {
+				return err
+			}
 
-		log.Println("connected to mongoDB")
-		s.dbclient = client
-	}
-
+			log.Println("connected to mongoDB")
+			s.dbclient = client
+		}
+	*/
 	log.Println("connecting to bolt DB")
 
 	filename := s.config.Sec.BoltDB
