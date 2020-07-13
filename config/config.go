@@ -1,4 +1,4 @@
-package system
+package config
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 )
 
 type MetaConfig struct {
+	Version         string                 `json:"-"`
 	ListenAddr      string                 `json:"listen"`
 	ListenAddrTLS   string                 `json:"listentls"`
 	SiteName        string                 `json:"sitename"`
@@ -15,15 +16,27 @@ type MetaConfig struct {
 	DevelopmentMode bool                   `json:"devmode"`
 	CopyrightName   string                 `json:"copyright-name"`
 	TemplateData    map[string]interface{} `json:"templatedata"`
-	Version         string                 `json:"-"`
+	LiveTemplate    bool                   `json:"livetemplate"`
+	PathTemplates   string                 `json:"templatedir"`
+	PathPublic      string                 `json:"publicdir"`
 }
 type Config struct {
 	Meta           MetaConfig        `json:"Meta,omitempty"`
 	Keys           KeyConfig         `json:"Keys,omitempty"`
 	Sec            SecurityConfig    `json:"Security,omitempty"`
 	ReverseProxy   map[string]string `json:"ReverseProxy"`
-	ConfigFilePath string            `json:"-"` // unused in config.json, path to config for reload, empty if stdin
+	Webhook        map[string]string `json:"Webhook"`
+	ConfigFilePath string            `json:"-"` // empty if stdin ($PWD used)
 	DoMongo        bool              `json:"use-mongo"`
+	Telegram       struct {
+		AdminUsername string `json:"adminUser"`
+		AdminChatID   int64  `json:"adminChat"`
+		AuditChatID   int64  `json:"auditChat"`
+	} `json:"Telegram"`
+	Diamond struct {
+		Kicks      bool `json:"Kicks"`
+		SocketPath string
+	} `json:"Diamond"`
 }
 
 type KeyConfig struct {
@@ -43,6 +56,7 @@ type KeyConfig struct {
 	MailgunPassword   string `json:"MailgunPassword"`
 	TwilioSID         string `json:"TwilioSID"`
 	TwilioAuthToken   string `json:"TwilioAuthToken"`
+	TelegramBot       string `json:"TelegramBot"`
 }
 
 type SecurityConfig struct {
@@ -55,12 +69,57 @@ type SecurityConfig struct {
 	ServePublic bool   `json:"servepublic"` // Serve All Unhandled URL in ./public
 	BoltDB      string `json:"database"`
 	OpenSignups bool   `json:"open-signups"`
+	EnableShell bool   `json:"EnableShell"`
 }
 
-func checkConfig(config *Config) error {
+func CheckConfig(config *Config) error {
 	// minimal config needed
 	if config.Meta.Version == "" {
 		config.Meta.Version = "webd"
+	}
+	if config.Meta.PathPublic == "" {
+		config.Meta.PathPublic = "./www/public"
+	}
+	if config.Meta.PathTemplates == "" {
+		config.Meta.PathTemplates = "./www/templates"
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if config.ConfigFilePath != "" {
+		dir, err = filepath.Abs(filepath.Dir(config.ConfigFilePath))
+		if err != nil {
+			return fmt.Errorf("error %v", err)
+		}
+		log.Println("ConfigFilePath Directory:", dir)
+	} else {
+		log.Println("Using current working directory:", dir)
+	}
+
+	if !filepath.IsAbs(config.Meta.PathPublic) {
+		log.Printf("public path %q isnt abs, making abs", config.Meta.PathPublic)
+		config.Meta.PathPublic, err = filepath.Abs(filepath.Join(dir, config.Meta.PathPublic))
+		if err != nil {
+			return err
+		}
+	}
+	if !filepath.IsAbs(config.Meta.PathTemplates) {
+		log.Printf("templates path %q isnt abs, making abs", config.Meta.PathTemplates)
+		config.Meta.PathTemplates, err = filepath.Abs(filepath.Join(dir, config.Meta.PathTemplates))
+		if err != nil {
+			return err
+		}
+	}
+	for _, dirname := range []string{config.Meta.PathPublic, config.Meta.PathTemplates} {
+		println("checking directory:", dirname)
+		if s, err := os.Stat(dirname); err != nil || !s.IsDir() {
+			if err != nil {
+				println("fatal")
+				return err
+			}
+			return fmt.Errorf("is not a dir: %v", dirname)
+		}
 	}
 
 	if config.Meta.SiteURL == "" {
@@ -90,9 +149,9 @@ func checkConfig(config *Config) error {
 	}
 
 	// check www/public exists
-	_, err := os.Open(filepath.Join("www", "public"))
+	_, err = os.Open(config.Meta.PathPublic)
 	if err != nil {
-		return fmt.Errorf("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public? Try: make www/public")
+		return fmt.Errorf("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public? Try: make www/public (not found: %q (%v))", config.Meta.PathPublic, err)
 	}
 
 	return nil

@@ -1,0 +1,31 @@
+{{ template "header.html" . }}
+<div class="container">
+  <h1>{{.sitename}}</h1>
+  <h3>Contact Form</h3>
+  <form class="" action="/contact" method="POST">
+    <label for="name">Your Name</label>
+    <input name="name" type="text" class="form-control" id="name" placeholder="Bob" tabindex=1 required></input>
+
+
+    <label for="body">Body</label>
+    <textarea class="form-control" name="body" id="body" placeholder="Hello!" tabindex=2></textarea>
+
+    {{ template "captcha.html" . }}
+    {{.csrfField}}
+    
+    <div class="row">
+    <label for="email">Email</label>
+    <input class="form-control" name="email" id="email" type="text" placeholder="you@gmail.com" tabindex=5 required></input>
+    </div>
+
+    <div class="row">
+    <p><input type="checkbox" required name="terms" tabindex=6> I accept the <u>Terms and Conditions</u></p>
+    </div>
+    <div class="row">
+    <button class="btn btn-default btn-lg" id="submitBtn" type="submit" tabindex=7>Send Message!</button>
+    </div>
+
+
+  </form>
+</div>
+{{ template "footer.html" . }}

@@ -1,0 +1,23 @@
+<a name="captcha"></a>
+<div class="col-md-6 captchabox">
+  <h4>Are you a robot?</h4>
+  <p>If not, type the numbers you see in the picture below:</p>
+  <p><img id=image src="/i/captcha/{{.CaptchaID}}.png" alt="Captcha image"></p>
+  <a href="#captcha" onclick="reload()">Too hard? Reload Image</a> | <a href="#" onclick="playAudio()">Play Audio</a>
+  <audio id=audio controls style="display:none" src="/i/captcha/{{.CaptchaID}}.wav" preload=none>
+  Your browser doesn't support audio.
+  <a href="/i/captcha/download/{{.CaptchaID}}.wav">Download file</a> to play it in the external player.
+  </audio>
+  <br>
+  Audio Language: <select id="lang" onchange="changeLang()">
+  <option value="en">English</option>
+  <option value="ja">Japanese</option>
+  <option value="ru">Russian</option>
+  <option value="zh">Chinese</option>
+  </select>
+<input name="captchaSol" type="text" class="" placeholder="Type the anti-spam code here" required autocomplete="off" tabindex=4>
+<br>
+<br>
+</div>
+
+<input type="hidden" name="captchaID" value="{{.CaptchaID}}" autocomplete="off">

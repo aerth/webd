@@ -2,9 +2,12 @@
 /webd
 /config.json
 /www/public
+/www/templates
 /bin
 /*.pdf
 /profile
 /*.crt
 /*.key
 /run.sh
+/testdir
+/webhooks

@@ -1,14 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"strconv"
 	"time"
 
+	diamondlib "github.com/aerth/diamond/lib"
+	"github.com/aerth/webd/config"
 	"github.com/aerth/webd/greylist"
+	"github.com/aerth/webd/i/captcha"
 	"github.com/aerth/webd/system"
 	"github.com/gorilla/csrf"
 
@@ -35,24 +43,32 @@ func main() {
 		sslKey      = ""
 		sslAddr     = DefaultListenAddrTLS
 		showVersion = false
+		doKick      = false
 	)
 
 	// flags
 	flag.StringVar(&addr, "addr", addr, "address to serve")
 	flag.BoolVar(&doMongo, "useMongo", doMongo, "use MongoDB (not implemented yet)")
+	flag.BoolVar(&doKick, "kick", doKick, "kick running instance before launching")
 	flag.BoolVar(&devmode, "dev", devmode, "development mode (insecure)")
 	flag.StringVar(&configpath, "conf", configpath, "path to config.json (use - for stdin)")
 	flag.StringVar(&sslCert, "sslcert", sslCert, "path to ssl cert")
 	flag.StringVar(&sslKey, "sslkey", sslKey, "path to ssl key")
 	flag.StringVar(&sslAddr, "ssladdr", sslAddr, "listen TLS if cert and key exist")
 	flag.BoolVar(&showVersion, "version", false, "show version and exit")
+	doConfigDump := flag.Bool("dumpconfig", false, "dump config and exit")
 	flag.Parse()
 
 	log.SetPrefix("[webd] ")
+	if doKick {
+		d, err := diamondlib.NewClient("/tmp/webd.socket")
+		if err == nil {
+			log.Println("Sending KICK to old webd instance")
+			d.Send("RUNLEVEL", "0")
+		}
+	}
 
-	// log format and pprof debug server
-	if devmode {
-		log.SetFlags(log.Lshortfile)
+	if os.Getenv("DEBUG") != "" {
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
@@ -65,7 +81,7 @@ func main() {
 	}
 
 	// read config file or stdin
-	var config = new(system.Config)
+	var config = new(config.Config)
 	config.Meta.Version = "webd " + Version
 	if configpath == "-" {
 		dec := json.NewDecoder(os.Stdin)
@@ -92,6 +108,10 @@ func main() {
 	if devmode {
 		config.Meta.DevelopmentMode = devmode
 	}
+	// log format and pprof debug server
+	if config.Meta.DevelopmentMode {
+		log.SetFlags(log.Lshortfile | log.LstdFlags)
+	}
 
 	if addr != DefaultListenAddr || config.Meta.ListenAddr == "" {
 		config.Meta.ListenAddr = addr
@@ -101,10 +121,51 @@ func main() {
 		config.Meta.ListenAddrTLS = sslAddr
 	}
 
+	if doKick {
+		config.Diamond.Kicks = true
+	}
+
 	// check config and init db
 	s, err := system.New(config)
 	if err != nil {
 		log.Fatalln("boot error:", err)
+	}
+
+	if *doConfigDump {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent(" ", " ")
+		err := enc.Encode(s.Config())
+		if err != nil {
+			log.Fatalln(err)
+		}
+		return
+	}
+
+	pidPath := "/tmp/webd.pid"
+	b, err := ioutil.ReadFile(pidPath)
+	if err != nil && !os.IsNotExist(err) {
+		log.Fatalln(err)
+	}
+	if err == nil {
+		n, err := strconv.Atoi(string(b))
+		if err == nil {
+			proc, err := os.FindProcess(n)
+			if err != nil {
+				log.Println("finding process:", err)
+			}
+			log.Println("Killing process...")
+			if err := proc.Kill(); err != nil && err.Error() != "os: process already finished" {
+				log.Println("error killing process:", err)
+			}
+		}
+	}
+
+	pid := os.Getpid()
+	if pid != 0 {
+		b := []byte(fmt.Sprintf("%d", pid))
+		if err := ioutil.WriteFile(pidPath, b, 0600); err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	// TODO: only state-changing pages in dashboard
@@ -138,15 +199,25 @@ func main() {
 	router.Handle("/robots.txt", http.HandlerFunc(s.StaticHandler))
 	router.Handle("/humans.txt", http.HandlerFunc(s.StaticHandler))
 	router.Handle("/sitemap.xml", http.HandlerFunc(s.StaticHandler))
+	router.Handle("/i/captcha/", captcha.Server(250, 75))
 
 	// templated
 	router.Handle("/logout", CSRF(http.HandlerFunc(s.LogoutHandler)))
 	router.Handle("/login", CSRF(http.HandlerFunc(s.LoginHandler)))
 	router.Handle("/signup", CSRF(http.HandlerFunc(s.SignupHandler)))
 	router.Handle("/dashboard", CSRF(http.HandlerFunc(s.DashboardHandler)))
-	router.Handle("/contact", CSRF(http.HandlerFunc(s.ContactHandler)))
-	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
 
+	// forms
+	router.Handle("/checkout", CSRF(http.HandlerFunc(s.HandleForm)))
+	router.Handle("/contact", CSRF(http.HandlerFunc(s.HandleForm)))
+
+	// status
+	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
+	for x, y := range config.Webhook {
+		router.Handle(x, webhookHandler(y))
+	}
+
+	// reverse proxy
 	for path, dest := range config.ReverseProxy {
 		prx, err := system.ReverseProxyHandler(*config, path, dest)
 		if err != nil {
@@ -190,6 +261,26 @@ func main() {
 		log.Println("View in browser:", config.Meta.SiteURL)
 	}()
 
-	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
-		glist.Protect(s.HitCounter(router))))
+	if err := s.Run(router); err != nil {
+		log.Println(err)
+		return
+	}
+
+	//	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
+	//		glist.Protect(s.HitCounter(router))))
+}
+
+type webhookHandler string
+
+func (ww webhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[webhook request] %s (executing %q)", r.URL.Path, ww)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, string(ww))
+	cmd.Stdin = nil
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Printf("[webhook request] error: %v", err)
+	}
 }

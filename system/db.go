@@ -1,22 +1,19 @@
 package system
 
 import (
-	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	// for data
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
 	// for pw, login info, and session storage
 	bolt "go.etcd.io/bbolt"
+
+	// hash
+	"golang.org/x/crypto/argon2"
 )
 
 // get userinfo by login ID
@@ -59,43 +56,6 @@ func (s *System) checkUserPass(id string, clearPass string) bool {
 	copy(salt, realHashedPassword[:32])
 	hashedPassword := s.hasher(clearPass, salt)
 	return compareDigest(hashedPassword, realHashedPassword[32:])
-}
-
-// dbStore uses mongo
-func (s *System) dbStore(method string, id string, val interface{}) error {
-	if s.config.Meta.DevelopmentMode {
-		log.Println("dbStore()")
-	}
-	dbclient, ok := s.dbclient.(*mongo.Client)
-	if !ok {
-		return fmt.Errorf("got error")
-	}
-	collection := dbclient.Database("testing").Collection(method)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err := collection.InsertOne(ctx, val)
-	return err
-}
-
-// dbFetch uses mongo
-func (s *System) dbFetch(method string, id string, result interface{}) error {
-	if s.config.Meta.DevelopmentMode {
-		log.Println("dbFetch()")
-	}
-	dbclient, ok := s.dbclient.(*mongo.Client)
-	if !ok {
-		return fmt.Errorf("got error")
-	}
-	log.Println("fetching from database:", method, id)
-	collection := dbclient.Database("testing").Collection(method)
-	filter := bson.M{"ID": id}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err := collection.FindOne(ctx, filter).Decode(&result)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // boltdbUpdate uses password db
@@ -156,6 +116,7 @@ func (s *System) doLogin(p LoginPacket) (*User, error) {
 	}
 	u.authkey = authkey
 
+	s.auditlog("User has logged in: %q", p.User)
 	return u, nil
 }
 
@@ -227,33 +188,12 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 	u.authkey = authkey
 
 	log.Println("Inserted password record:", p.User)
+	s.auditlog("New user: %q", p.User)
 	return u, nil
 }
 
 // initialize database connections and create buckets
-func (s *System) InitDB(doMongo bool) error {
-	if doMongo {
-		log.Println("connecting to mongoDB")
-		client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-		if err != nil {
-			return err
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err = client.Connect(ctx)
-		if err != nil {
-			return err
-		}
-		err = client.Ping(ctx, readpref.Primary())
-		if err != nil {
-			return err
-		}
-
-		log.Println("connected to mongoDB")
-		s.dbclient = client
-	}
-
+func (s *System) InitDB() error {
 	log.Println("connecting to bolt DB")
 
 	filename := s.config.Sec.BoltDB
@@ -271,6 +211,9 @@ func (s *System) InitDB(doMongo bool) error {
 
 	db, err := bolt.Open(filename, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
+		if err == bolt.ErrTimeout && !s.config.Diamond.Kicks {
+			log.Println("Try -kick boot flag")
+		}
 		return err
 	}
 
@@ -282,7 +225,33 @@ func (s *System) InitDB(doMongo bool) error {
 	})
 	s.passwdDB = db
 
-	log.Println("connected to bolt DB")
+	log.Println("successfully connected to bolt DB")
 
 	return nil
+}
+
+func (s *System) getStats() Stats {
+	return s.Stats
+}
+
+func (s *System) getInfo() Info {
+	return s.Info
+
+}
+
+func (u User) String() string {
+	return fmt.Sprintf("User {Name: %s, ID: %s, Authkey: %.6s}", u.Name, u.ID, u.authkey)
+}
+
+func (s *System) hasher(in string, salt []byte) []byte {
+	return argon2.IDKey(append(salt, []byte(in)...), salt, 2, 1024, 2, 32)
+}
+
+// compareDigest compares equality of two equal-length byte slices
+func compareDigest(a, b []byte) bool {
+	if len(a) != len(b) || len(a) < 32 {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare(a, b) == 1
 }

@@ -3,6 +3,7 @@ package system
 import (
 	"crypto/rand"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -14,11 +15,17 @@ import (
 	"time"
 
 	// for cookies
+	"github.com/aerth/webd/config"
+	"github.com/aerth/webd/i/captcha"
 	"github.com/crewjam/csp"
 	"github.com/gorilla/csrf"
 )
 
 func (s *System) SetCSPHeader(w http.ResponseWriter) {
+	if true {
+		return
+	}
+
 	u, err := url.Parse(s.config.Meta.SiteURL)
 	if err != nil {
 		log.Println("Cant set Content-Security-Policy:", err)
@@ -50,6 +57,23 @@ func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname str
 		//http.NotFound(w, r)
 		return
 	}
+	if s.config.Meta.LiveTemplate {
+		var err error
+		t, err = func(tname string) (*template.Template, error) {
+			t1 := time.Now()
+			t, err = parseTemplateFile(s.config, tname)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't parse template %q: %v", tname, err)
+			}
+			log.Printf("Live Parsed %q template in %s", tname, time.Since(t1))
+			return t, nil
+		}(tname)
+		if err != nil {
+			// handle error
+			log.Println("Error live reloading template:", err)
+			return
+		}
+	}
 	var name string
 	if userinfo != nil {
 		name = userinfo.Name
@@ -62,14 +86,10 @@ func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname str
 	}
 
 	switch tname {
-	case "dashboard.html":
-		pageTitle += "Dashboard"
 	case "index.html":
 		pageTitle += "Home"
-	case "login.html":
-		pageTitle += "Login"
-	case "singup.html":
-		pageTitle += "Signup"
+	default:
+		pageTitle += strings.Title(strings.Split(tname, ".")[0])
 	}
 
 	t.ExecuteTemplate(w, tname, map[string]interface{}{
@@ -83,6 +103,7 @@ func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname str
 		"sitename":       s.config.Meta.SiteName,
 		"copyrightname":  s.config.Meta.CopyrightName,
 		"meta":           s.config.Meta.TemplateData,
+		"CaptchaID":      captcha.New(),
 	})
 }
 
@@ -332,6 +353,10 @@ func (s *System) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, err := os.Stat(filepath.Join(s.config.Meta.PathTemplates, path)); err == nil {
+		s.serveTemplate(w, r, path, nil)
+		return
+	}
 	// 404s
 	if path != "index.html" {
 		if s.config.Sec.ServePublic {
@@ -361,6 +386,7 @@ func (s *System) HomeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	log.Println("serving template:", path)
 	s.serveTemplate(w, r, path, userinfo)
 	return
 }
@@ -390,7 +416,7 @@ func logr(r *http.Request) string {
 	ipaddr += " "
 	ipaddr += r.Header.Get("X-Forwarded-For")
 
-	return fmt.Sprintf("%s %s %.50q %q %s", r.Host, r.Method, r.UserAgent(), ipaddr, r.URL.Path)
+	return fmt.Sprintf("(%s) %s %s %.50q %q %s", r.URL.RawPath, r.Host, r.Method, r.UserAgent(), ipaddr, r.URL.Path)
 }
 
 // authkeyRevoke sets a random sessionkey, revoking any cookies in the wild
@@ -448,7 +474,7 @@ func (s *System) addBadAttempt(r *http.Request) {
 	}
 }
 
-func ReverseProxyHandler(config Config, path, dest string) (http.Handler, error) {
+func ReverseProxyHandler(config config.Config, path, dest string) (http.Handler, error) {
 	if config.Meta.DevelopmentMode {
 		log.Printf("adding reverse proxy: %s=>%s", path, dest)
 	}
