@@ -2,6 +2,7 @@
 /webd
 /config.json
 /www/public
+/www/templates
 /bin
 /*.pdf
 /profile
