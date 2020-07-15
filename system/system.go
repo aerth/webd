@@ -32,7 +32,7 @@ func parseTemplateFile(config *Config, name string) (*template.Template, error) 
 		return nil, fmt.Errorf("error fetching partials: %v", err)
 	}
 
-	t, err := template.New(name).ParseFiles(append([]string{filepath.Join(config.Meta.PathTemplate, name)}, partials...)...)
+	t, err := template.New(name).ParseFiles(append([]string{filepath.Join(config.Meta.PathTemplates, name)}, partials...)...)
 	return t, err
 }
 

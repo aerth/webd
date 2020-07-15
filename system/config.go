@@ -17,14 +17,16 @@ type MetaConfig struct {
 	CopyrightName   string                 `json:"copyright-name"`
 	TemplateData    map[string]interface{} `json:"templatedata"`
 	LiveTemplate    bool                   `json:"livetemplate"`
+	PathTemplates   string                 `json:"templatedir"`
+	PathPublic      string                 `json:"publicdir"`
 }
 type Config struct {
 	Meta           MetaConfig        `json:"Meta,omitempty"`
 	Keys           KeyConfig         `json:"Keys,omitempty"`
 	Sec            SecurityConfig    `json:"Security,omitempty"`
 	ReverseProxy   map[string]string `json:"ReverseProxy"`
-	Webhook        map[string]string `json:"json:Webhook"`
-	ConfigFilePath string            `json:"-"` // unused in config.json, path to config for reload, empty if stdin
+	Webhook        map[string]string `json:"Webhook"`
+	ConfigFilePath string            `json:"-"` // empty if stdin ($PWD used)
 	DoMongo        bool              `json:"use-mongo"`
 }
 
@@ -64,6 +66,50 @@ func checkConfig(config *Config) error {
 	if config.Meta.Version == "" {
 		config.Meta.Version = "webd"
 	}
+	if config.Meta.PathPublic == "" {
+		config.Meta.PathPublic = "./www/public"
+	}
+	if config.Meta.PathTemplates == "" {
+		config.Meta.PathTemplates = "./www/templates"
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if config.ConfigFilePath != "" {
+		dir, err = filepath.Abs(filepath.Dir(config.ConfigFilePath))
+		if err != nil {
+			return fmt.Errorf("error %v", err)
+		}
+		log.Println("ConfigFilePath Directory:", dir)
+	} else {
+		log.Println("Using current working directory:", dir)
+	}
+
+	if !filepath.IsAbs(config.Meta.PathPublic) {
+		log.Printf("public path %q isnt abs, making abs", config.Meta.PathPublic)
+		config.Meta.PathPublic, err = filepath.Abs(filepath.Join(dir, config.Meta.PathPublic))
+		if err != nil {
+			return err
+		}
+	}
+	if !filepath.IsAbs(config.Meta.PathTemplates) {
+		log.Printf("templates path %q isnt abs, making abs", config.Meta.PathTemplates)
+		config.Meta.PathTemplates, err = filepath.Abs(filepath.Join(dir, config.Meta.PathTemplates))
+		if err != nil {
+			return err
+		}
+	}
+	for _, dirname := range []string{config.Meta.PathPublic, config.Meta.PathTemplates} {
+		println("checking directory:", dirname)
+		if s, err := os.Stat(dirname); err != nil || !s.IsDir() {
+			if err != nil {
+				println("fatal")
+				return err
+			}
+			return fmt.Errorf("is not a dir: %v", dirname)
+		}
+	}
 
 	if config.Meta.SiteURL == "" {
 		return fmt.Errorf("config needs Meta.siteurl")
@@ -92,9 +138,9 @@ func checkConfig(config *Config) error {
 	}
 
 	// check www/public exists
-	_, err := os.Open(filepath.Join("www", "public"))
+	_, err = os.Open(config.Meta.PathPublic)
 	if err != nil {
-		return fmt.Errorf("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public? Try: make www/public")
+		return fmt.Errorf("Warning: no public web assets found. Did you forget to unzip webassets.zip to ./www/public? Try: make www/public (not found: %q (%v))", config.Meta.PathPublic, err)
 	}
 
 	return nil
