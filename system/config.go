@@ -8,6 +8,7 @@ import (
 )
 
 type MetaConfig struct {
+	Version         string                 `json:"-"`
 	ListenAddr      string                 `json:"listen"`
 	ListenAddrTLS   string                 `json:"listentls"`
 	SiteName        string                 `json:"sitename"`
@@ -15,13 +16,14 @@ type MetaConfig struct {
 	DevelopmentMode bool                   `json:"devmode"`
 	CopyrightName   string                 `json:"copyright-name"`
 	TemplateData    map[string]interface{} `json:"templatedata"`
-	Version         string                 `json:"-"`
+	LiveTemplate    bool                   `json:"livetemplate"`
 }
 type Config struct {
 	Meta           MetaConfig        `json:"Meta,omitempty"`
 	Keys           KeyConfig         `json:"Keys,omitempty"`
 	Sec            SecurityConfig    `json:"Security,omitempty"`
 	ReverseProxy   map[string]string `json:"ReverseProxy"`
+	Webhook        map[string]string `json:"json:Webhook"`
 	ConfigFilePath string            `json:"-"` // unused in config.json, path to config for reload, empty if stdin
 	DoMongo        bool              `json:"use-mongo"`
 }

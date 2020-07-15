@@ -3,6 +3,7 @@ package system
 import (
 	"crypto/rand"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -49,6 +50,34 @@ func (s *System) serveTemplate(w http.ResponseWriter, r *http.Request, tname str
 		http.ServeFile(w, r, filepath.Join("www", "public", tname))
 		//http.NotFound(w, r)
 		return
+	}
+	if s.config.Meta.LiveTemplate {
+		var err error
+		t, err = func(tname string) (*template.Template, error) {
+			t1 := time.Now()
+			partials, err := filepath.Glob(filepath.Join("www", "templates", "_partials", "*.html"))
+			if err != nil {
+				return nil, fmt.Errorf("couldn't enumerate partial templates")
+			}
+			if s.config.Meta.DevelopmentMode {
+				log.Printf("Found %d partial templates: %q", len(partials), partials)
+			}
+			//for _, name := range []string{"signup.html", "login.html", "index.html", "dashboard.html"} {
+			if s.config.Meta.DevelopmentMode {
+				log.Println("Parsing template:", tname)
+			}
+			t, err = template.New(tname).ParseFiles(append([]string{filepath.Join("www", "templates", tname)}, partials...)...)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't parse template %q: %v", tname, err)
+			}
+			log.Printf("Parsed template in %s", time.Since(t1))
+			return t, nil
+		}(tname)
+		if err != nil {
+			// handle error
+			log.Println("Error live reloading template:", err)
+			return
+		}
 	}
 	var name string
 	if userinfo != nil {

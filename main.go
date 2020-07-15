@@ -146,6 +146,9 @@ func main() {
 	router.Handle("/dashboard", CSRF(http.HandlerFunc(s.DashboardHandler)))
 	router.Handle("/contact", CSRF(http.HandlerFunc(s.ContactHandler)))
 	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
+	for x, y := range config.Webhook {
+		router.Handle(x, webhookHandler(y))
+	}
 
 	for path, dest := range config.ReverseProxy {
 		prx, err := system.ReverseProxyHandler(*config, path, dest)
@@ -192,4 +195,10 @@ func main() {
 
 	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
 		glist.Protect(s.HitCounter(router))))
+}
+
+type webhookHandler string
+
+func (ww webhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
 }

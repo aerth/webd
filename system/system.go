@@ -26,6 +26,16 @@ import (
 	"github.com/aerth/webd/greylist"
 )
 
+func parseTemplateFile(config *Config, name string) (*template.Template, error) {
+	partials, err := filepath.Glob(filepath.Join("www", "templates", "_partials", "*.html"))
+	if err != nil {
+		return nil, fmt.Errorf("error fetching partials: %v", err)
+	}
+
+	t, err := template.New(name).ParseFiles(append([]string{filepath.Join(config.Meta.PathTemplate, name)}, partials...)...)
+	return t, err
+}
+
 func New(config *Config) (*System, error) {
 	if err := checkConfig(config); err != nil {
 		return nil, err
@@ -39,18 +49,15 @@ func New(config *Config) (*System, error) {
 	}
 	var s = securecookie.New(hashKey, blockKey)
 	var templates = map[string]*template.Template{}
-	partials, err := filepath.Glob(filepath.Join("www", "templates", "_partials", "*.html"))
-	if err != nil {
-		log.Fatalln("couldn't enumerate partial templates")
-	}
-	if config.Meta.DevelopmentMode {
-		log.Printf("Found %d partial templates: %q", len(partials), partials)
-	}
 	for _, name := range []string{"signup.html", "login.html", "index.html", "dashboard.html"} {
 		if config.Meta.DevelopmentMode {
 			log.Println("Parsing template:", name)
 		}
-		templates[name] = template.Must(template.New(name).ParseFiles(append([]string{filepath.Join("www", "templates", name)}, partials...)...))
+		if t, err := parseTemplateFile(config, name); err != nil {
+			return nil, fmt.Errorf("parseTemplateFile: %v", err)
+		} else {
+			templates[name] = t
+		}
 	}
 	if config.Meta.DevelopmentMode {
 		log.Printf("Parsed %d templates in %s", len(templates), time.Since(t1))
@@ -70,32 +77,36 @@ func New(config *Config) (*System, error) {
 
 	// catch signals to reload config, templates, or quit.
 	go func(s *System) {
-		sigchan := make(chan os.Signal)
-		signal.Notify(sigchan, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
-		for {
-			select {
-			case sig := <-sigchan:
-				log.Println("got signal:", sig.String())
-				switch sig {
-				case syscall.SIGUSR1:
-					log.Println("reloading config")
-					if err := s.ReloadConfig(); err != nil {
-						log.Println("Error reloading config:", err)
-					}
-				case syscall.SIGUSR2:
-					log.Println("reloading templates")
-					if err := s.ReloadTemplates(); err != nil {
-						log.Println("Error reloading templates:", err)
-					}
-				default:
-					os.Exit(111)
-				}
-			}
-		}
-
+		signalCatcher(s)
 	}(sys)
 
 	return sys, nil
+
+}
+
+func signalCatcher(s *System) {
+	sigchan := make(chan os.Signal)
+	signal.Notify(sigchan, os.Kill, os.Interrupt, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
+	for {
+		select {
+		case sig := <-sigchan:
+			log.Println("got signal:", sig.String())
+			switch sig {
+			case syscall.SIGUSR1:
+				log.Println("reloading config")
+				if err := s.ReloadConfig(); err != nil {
+					log.Println("Error reloading config:", err)
+				}
+			case syscall.SIGUSR2:
+				log.Println("reloading templates")
+				if err := s.ReloadTemplates(); err != nil {
+					log.Println("Error reloading templates:", err)
+				}
+			default:
+				os.Exit(111)
+			}
+		}
+	}
 
 }
 
