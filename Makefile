@@ -22,3 +22,6 @@ dist-clean: clean
 
 webassets.zip: www/public
 	cd www && zip -r ../webassets.zip public
+
+reload:
+	pkill -e -usr1 webd && pkill -e -usr2 webd && echo reloaded
