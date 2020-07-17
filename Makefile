@@ -25,3 +25,5 @@ webassets.zip: www/public
 
 reload:
 	pkill -e -usr1 webd && pkill -e -usr2 webd && echo reloaded
+test:
+	go test -v ./... && echo Test Passed
