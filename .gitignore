@@ -9,3 +9,5 @@
 /*.crt
 /*.key
 /run.sh
+/testdir
+
