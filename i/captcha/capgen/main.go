@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/aerth/webd/captcha"
+	"github.com/aerth/webd/i/captcha"
 )
 
 var (
