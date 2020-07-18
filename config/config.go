@@ -30,7 +30,8 @@ type Config struct {
 	DoMongo        bool              `json:"use-mongo"`
 	Telegram       struct {
 		AdminUsername string `json:"adminUser"`
-		AdminChatID   int64  `json:"adminchat"`
+		AdminChatID   int64  `json:"adminChat"`
+		AuditChatID   int64  `json:"auditChat"`
 	} `json:"Telegram"`
 	Diamond struct {
 		Kicks      bool `json:"Kicks"`
