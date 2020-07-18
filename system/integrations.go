@@ -47,9 +47,16 @@ func startTelegramLoop(s *System) {
 			continue
 		}
 
+		args := strings.Split(i.Message.Text, " ")
+		switch args[0] {
+		case "/chatid":
+			chatid := i.Message.Chat.ID
+			s.i.tg.T.Send(telegram.NewMessage(chatid, fmt.Sprintf("%d", chatid)))
+		default:
+		}
+
 		// accept commands from one user
-		if i.Message.From.UserName == "aerthx" && i.Message.Chat.ID == 507963905 {
-			args := strings.Split(i.Message.Text, " ")
+		if s.config.Telegram.AdminUsername != "" && i.Message.From.UserName == s.config.Telegram.AdminUsername && i.Message.Chat.ID == s.config.Telegram.AdminChatID {
 			buf := &bytes.Buffer{}
 			switch args[0] {
 			case "restart":

@@ -187,6 +187,7 @@ func (s *System) doSignup(p SignupPacket) (*User, error) {
 	u.authkey = authkey
 
 	log.Println("Inserted password record:", p.User)
+	s.auditlog("New user: %q", p.User)
 	return u, nil
 }
 

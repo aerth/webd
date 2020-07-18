@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	diamondlib "github.com/aerth/diamond/lib"
@@ -134,6 +137,33 @@ func main() {
 			log.Fatalln(err)
 		}
 		return
+	}
+
+	pidPath := "/tmp/webd.pid"
+	b, err := ioutil.ReadFile(pidPath)
+	if err != nil && !os.IsNotExist(err) {
+		log.Fatalln(err)
+	}
+	if err == nil {
+		n, err := strconv.Atoi(string(b))
+		if err == nil {
+			proc, err := os.FindProcess(n)
+			if err != nil {
+				log.Println("finding process:", err)
+			}
+			log.Println("Killing process...")
+			if err := proc.Kill(); err != nil {
+				log.Println("error killing process:", err)
+			}
+		}
+	}
+
+	pid := os.Getpid()
+	if pid != 0 {
+		b := []byte(fmt.Sprintf("%d", pid))
+		if err := ioutil.WriteFile(pidPath, b, 0600); err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	// TODO: only state-changing pages in dashboard

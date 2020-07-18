@@ -171,8 +171,10 @@ func (s *System) Run(router http.Handler) error {
 		s.config.Diamond.SocketPath = "/tmp/webd.socket"
 	}
 	d, err := diamond.New(s.config.Diamond.SocketPath, s.NewRPC())
-	if err != nil {
-		log.Fatalln(err)
+	if err != nil && s.config.Diamond.Kicks {
+		os.Remove(s.config.Diamond.SocketPath)
+		s.passwdDB.Close()
+		return s.Run(router)
 	}
 	s.diamond = d
 	d.AddHTTPHandler(s.config.Meta.ListenAddr, s.greylist.Protect(s.HitCounter(router)))
