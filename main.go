@@ -8,7 +8,10 @@ import (
 	"os"
 	"time"
 
+	diamondlib "github.com/aerth/diamond/lib"
+	"github.com/aerth/webd/config"
 	"github.com/aerth/webd/greylist"
+	"github.com/aerth/webd/i/captcha"
 	"github.com/aerth/webd/system"
 	"github.com/gorilla/csrf"
 
@@ -35,11 +38,13 @@ func main() {
 		sslKey      = ""
 		sslAddr     = DefaultListenAddrTLS
 		showVersion = false
+		doKick      = false
 	)
 
 	// flags
 	flag.StringVar(&addr, "addr", addr, "address to serve")
 	flag.BoolVar(&doMongo, "useMongo", doMongo, "use MongoDB (not implemented yet)")
+	flag.BoolVar(&doKick, "kick", doKick, "kick running instance before launching")
 	flag.BoolVar(&devmode, "dev", devmode, "development mode (insecure)")
 	flag.StringVar(&configpath, "conf", configpath, "path to config.json (use - for stdin)")
 	flag.StringVar(&sslCert, "sslcert", sslCert, "path to ssl cert")
@@ -49,10 +54,15 @@ func main() {
 	flag.Parse()
 
 	log.SetPrefix("[webd] ")
+	if doKick {
+		d, err := diamondlib.NewClient("/tmp/webd.socket")
+		if err == nil {
+			log.Println("Sending KICK to old webd instance")
+			d.Send("RUNLEVEL", "0")
+		}
+	}
 
-	// log format and pprof debug server
-	if devmode {
-		log.SetFlags(log.Lshortfile)
+	if os.Getenv("DEBUG") != "" {
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
@@ -65,7 +75,7 @@ func main() {
 	}
 
 	// read config file or stdin
-	var config = new(system.Config)
+	var config = new(config.Config)
 	config.Meta.Version = "webd " + Version
 	if configpath == "-" {
 		dec := json.NewDecoder(os.Stdin)
@@ -92,6 +102,10 @@ func main() {
 	if devmode {
 		config.Meta.DevelopmentMode = devmode
 	}
+	// log format and pprof debug server
+	if config.Meta.DevelopmentMode {
+		log.SetFlags(log.Lshortfile | log.LstdFlags)
+	}
 
 	if addr != DefaultListenAddr || config.Meta.ListenAddr == "" {
 		config.Meta.ListenAddr = addr
@@ -99,6 +113,10 @@ func main() {
 
 	if sslAddr != DefaultListenAddrTLS || config.Meta.ListenAddrTLS == "" {
 		config.Meta.ListenAddrTLS = sslAddr
+	}
+
+	if doKick {
+		config.Diamond.Kicks = true
 	}
 
 	// check config and init db
@@ -138,18 +156,25 @@ func main() {
 	router.Handle("/robots.txt", http.HandlerFunc(s.StaticHandler))
 	router.Handle("/humans.txt", http.HandlerFunc(s.StaticHandler))
 	router.Handle("/sitemap.xml", http.HandlerFunc(s.StaticHandler))
+	router.Handle("/i/captcha/", captcha.Server(250, 75))
 
 	// templated
 	router.Handle("/logout", CSRF(http.HandlerFunc(s.LogoutHandler)))
 	router.Handle("/login", CSRF(http.HandlerFunc(s.LoginHandler)))
 	router.Handle("/signup", CSRF(http.HandlerFunc(s.SignupHandler)))
 	router.Handle("/dashboard", CSRF(http.HandlerFunc(s.DashboardHandler)))
-	router.Handle("/contact", CSRF(http.HandlerFunc(s.ContactHandler)))
+
+	// forms
+	router.Handle("/checkout", CSRF(http.HandlerFunc(s.HandleForm)))
+	router.Handle("/contact", CSRF(http.HandlerFunc(s.HandleForm)))
+
+	// status
 	router.Handle("/status", CSRF(http.HandlerFunc(s.StatusHandler)))
 	for x, y := range config.Webhook {
 		router.Handle(x, webhookHandler(y))
 	}
 
+	// reverse proxy
 	for path, dest := range config.ReverseProxy {
 		prx, err := system.ReverseProxyHandler(*config, path, dest)
 		if err != nil {
@@ -193,8 +218,13 @@ func main() {
 		log.Println("View in browser:", config.Meta.SiteURL)
 	}()
 
-	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
-		glist.Protect(s.HitCounter(router))))
+	if err := s.Run(router); err != nil {
+		log.Println(err)
+		return
+	}
+
+	//	log.Fatalln(http.ListenAndServe(config.Meta.ListenAddr,
+	//		glist.Protect(s.HitCounter(router))))
 }
 
 type webhookHandler string
