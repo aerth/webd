@@ -2,7 +2,7 @@ VERSION ?= $(shell git describe --dirty --tags --abbrev=6 --always)
 buildflags ?= -v
 
 buildflags += --ldflags "-X main.Version=$(VERSION)"
-bin/webd: VERSION *.go */*.go
+bin/webd: VERSION *.go */*.go */*/*.go
 	mkdir -p bin
 	go build $(buildflags) -o $@ .
 version.go:
@@ -10,7 +10,7 @@ version.go:
 VERSION:
 	git tag | tail -n 1 > VERSION
 run: www/public bin/webd
-	./bin/webd -dev
+	./bin/webd -dev -kick
 www/public:
 	cd www && unzip ../webassets.zip 
 clean:
