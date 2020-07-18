@@ -6,6 +6,7 @@ package captcha
 
 import (
 	"bytes"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -57,6 +58,7 @@ func (h *captchaHandler) serve(w http.ResponseWriter, r *http.Request, id, ext, 
 		w.Header().Set("Content-Type", "audio/x-wav")
 		WriteAudio(&content, id, lang)
 	default:
+		log.Println("bad extension:", ext)
 		return ErrNotFound
 	}
 
@@ -68,7 +70,8 @@ func (h *captchaHandler) serve(w http.ResponseWriter, r *http.Request, id, ext, 
 }
 
 func (h *captchaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	dir, file := path.Split(r.URL.Path)
+	p := strings.TrimPrefix(r.URL.Path, "/i/captcha")
+	dir, file := path.Split(p)
 	ext := path.Ext(file)
 	id := file[:len(file)-len(ext)]
 	if ext == "" || id == "" {
@@ -76,12 +79,18 @@ func (h *captchaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.FormValue("reload") != "" {
+		log.Println("Captcha Reloading", r.RemoteAddr)
 		Reload(id)
 	}
 	lang := strings.ToLower(r.FormValue("lang"))
 	download := path.Base(dir) == "download"
-	if h.serve(w, r, id, ext, lang, download) == ErrNotFound {
+	err := h.serve(w, r, id, ext, lang, download)
+	if err == ErrNotFound {
+		log.Println("Not Found!")
 		http.NotFound(w, r)
+		return
 	}
-	// Ignore other errors.
+	if err != nil {
+		log.Println(err)
+	}
 }
