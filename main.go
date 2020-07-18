@@ -51,6 +51,7 @@ func main() {
 	flag.StringVar(&sslKey, "sslkey", sslKey, "path to ssl key")
 	flag.StringVar(&sslAddr, "ssladdr", sslAddr, "listen TLS if cert and key exist")
 	flag.BoolVar(&showVersion, "version", false, "show version and exit")
+	doConfigDump := flag.Bool("dumpconfig", false, "dump config and exit")
 	flag.Parse()
 
 	log.SetPrefix("[webd] ")
@@ -123,6 +124,16 @@ func main() {
 	s, err := system.New(config)
 	if err != nil {
 		log.Fatalln("boot error:", err)
+	}
+
+	if *doConfigDump {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent(" ", " ")
+		err := enc.Encode(s.Config())
+		if err != nil {
+			log.Fatalln(err)
+		}
+		return
 	}
 
 	// TODO: only state-changing pages in dashboard

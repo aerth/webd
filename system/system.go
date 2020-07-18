@@ -89,6 +89,9 @@ var ErrNotFound = errors.New("not found")
 func (s *System) NewRPC() *RPC {
 	return &RPC{s}
 }
+func (s *System) Config() config.Config {
+	return s.config
+}
 func New(conf *config.Config) (*System, error) {
 	if err := config.CheckConfig(conf); err != nil {
 		return nil, err
