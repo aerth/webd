@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	tgbotapi "github.com/aerth/telegram-bot-api"
+	tgbotapi "github.com/aerth/webd/i/telegram/bot"
 )
 
 const (
