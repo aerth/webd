@@ -1,4 +1,4 @@
-package system
+package config
 
 import (
 	"fmt"
@@ -28,6 +28,14 @@ type Config struct {
 	Webhook        map[string]string `json:"Webhook"`
 	ConfigFilePath string            `json:"-"` // empty if stdin ($PWD used)
 	DoMongo        bool              `json:"use-mongo"`
+	Telegram       struct {
+		AdminUsername string `json:"adminUser"`
+		AdminChatID   int64  `json:"adminchat"`
+	} `json:"Telegram"`
+	Diamond struct {
+		Kicks      bool `json:"Kicks"`
+		SocketPath string
+	} `json:"Diamond"`
 }
 
 type KeyConfig struct {
@@ -47,6 +55,7 @@ type KeyConfig struct {
 	MailgunPassword   string `json:"MailgunPassword"`
 	TwilioSID         string `json:"TwilioSID"`
 	TwilioAuthToken   string `json:"TwilioAuthToken"`
+	TelegramBot       string `json:"TelegramBot"`
 }
 
 type SecurityConfig struct {
@@ -59,9 +68,10 @@ type SecurityConfig struct {
 	ServePublic bool   `json:"servepublic"` // Serve All Unhandled URL in ./public
 	BoltDB      string `json:"database"`
 	OpenSignups bool   `json:"open-signups"`
+	EnableShell bool   `json:"EnableShell"`
 }
 
-func checkConfig(config *Config) error {
+func CheckConfig(config *Config) error {
 	// minimal config needed
 	if config.Meta.Version == "" {
 		config.Meta.Version = "webd"
