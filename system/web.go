@@ -402,6 +402,12 @@ func (s *System) StaticHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Expires", time.Now().Add(time.Hour*24).UTC().Truncate(time.Second).Format(http.TimeFormat))
 	filename := filepath.Join("www", "public", r.URL.Path)
+	if strings.HasSuffix(filename, ".css") {
+		w.Header().Set("Content-Type", "text/css")
+	}
+	if strings.HasSuffix(filename, ".js") {
+		w.Header().Set("Content-Type", "text/javascript")
+	}
 	http.ServeFile(w, r, filename)
 	return
 }
