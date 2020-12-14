@@ -26,8 +26,8 @@ import (
 	// greylist
 	"github.com/aerth/diamond"
 	"github.com/aerth/webd/config"
-	"github.com/aerth/webd/greylist"
 	"github.com/aerth/webd/i/telegram"
+	"gitlab.com/aerth/greylist"
 )
 
 type System struct {

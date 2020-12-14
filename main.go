@@ -15,10 +15,10 @@ import (
 
 	diamondlib "github.com/aerth/diamond/lib"
 	"github.com/aerth/webd/config"
-	"github.com/aerth/webd/greylist"
 	"github.com/aerth/webd/i/captcha"
 	"github.com/aerth/webd/system"
 	"github.com/gorilla/csrf"
+	"gitlab.com/aerth/greylist"
 
 	_ "net/http/pprof"
 )
